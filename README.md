@@ -29,7 +29,8 @@ agent/
 ├── agent.ts           # Agent runtime config (model, name, build, …)
 ├── instructions.md    # Always-on agent instructions
 ├── channels/
-│   └── eve.ts         # Eve channel with local dev and Vercel OIDC auth
+│   ├── eve.ts         # Eve channel with local dev and Vercel OIDC auth
+│   └── slack.ts       # Slack channel via Vercel Connect credentials
 └── tools/
     ├── get_current_datetime.ts # Returns the current localized datetime
     └── get_weather.ts          # Example weather tool backed by Open-Meteo
@@ -44,4 +45,5 @@ agent/
 ## Development notes
 
 - Replace `placeholderAuth()` in `agent/channels/eve.ts` before exposing the agent in production.
+- Point `connectSlackCredentials(...)` in `agent/channels/slack.ts` at your Vercel Connect Slack client UID and attach its trigger to `/eve/v1/slack` before deploying for Slack messaging.
 - Compiled artifacts and local runtime state are written under `.eve/` and are gitignored.
