@@ -31,7 +31,8 @@ agent/
 ├── channels/
 │   └── eve.ts         # Eve channel with local dev and Vercel OIDC auth
 └── tools/
-    └── get_weather.ts # Example weather tool backed by Open-Meteo
+    ├── get_current_datetime.ts # Returns the current localized datetime
+    └── get_weather.ts          # Example weather tool backed by Open-Meteo
 ```
 
 ## Documentation
