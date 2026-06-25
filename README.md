@@ -28,8 +28,10 @@ npm install
 agent/
 ├── agent.ts           # Agent runtime config (model, name, build, …)
 ├── instructions.md    # Always-on agent instructions
-└── channels/
-    └── eve.ts         # Eve channel with local dev and Vercel OIDC auth
+├── channels/
+│   └── eve.ts         # Eve channel with local dev and Vercel OIDC auth
+└── tools/
+    └── get_weather.ts # Example weather tool backed by Open-Meteo
 ```
 
 ## Documentation
