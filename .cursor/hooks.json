@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": ".cursor/hooks/gen-commits-clean-code.js",
+        "timeout": 10,
+        "failClosed": false,
+        "loop_limit": 8
+      }
+    ]
+  }
+}
