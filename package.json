@@ -8,18 +8,26 @@
   },
   "scripts": {
     "build": "eve build",
+    "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
+    "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
     "dev": "eve dev",
     "start": "eve start",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@upstash/redis": "^1.38.0",
     "@vercel/connect": "0.2.2",
     "ai": "7.0.0-beta.178",
+    "drizzle-orm": "^0.45.2",
     "eve": "^0.13.8",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "24.x",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "7.0.1-rc"
   },
   "overrides": {
