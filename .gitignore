@@ -3,6 +3,7 @@ node_modules
 .eve
 .vercel
 .workflow-data
+.cursor/hooks/.gen-commits-clean-code-state.json
 .next
 .output
 .nitro
