@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 
+import { deleteCacheValues, getCacheValue, setCacheValue } from "./cache.js";
 import { getDb } from "./db.js";
-import { getRedis } from "./redis.js";
 import { type Rule, type Skill, type StorageMetadata, rules, skills } from "./schema.js";
 
 const RULES_CACHE_KEY = "eve:rules:v1";
@@ -192,35 +192,16 @@ export async function upsertSkillVersion(input: UpsertSkillVersionInput) {
 }
 
 export async function invalidateRulesSkillsCache() {
-  const redis = getRedis();
-  await redis.del(RULES_CACHE_KEY, SKILLS_CACHE_KEY);
+  await deleteCacheValues([RULES_CACHE_KEY, SKILLS_CACHE_KEY]);
 }
 
 async function getCachedArray<T>(key: string, loadFromDb: () => Promise<T[]>) {
-  const redis = getRedis();
-  const cached = await readCachedArray<T>(redis, key);
+  const cached = await getCacheValue<T[]>(key);
   if (cached !== null) return cached;
 
   const items = await loadFromDb();
-  await redis.set(key, JSON.stringify(items), { ex: CACHE_TTL_SECONDS });
+  await setCacheValue(key, items, CACHE_TTL_SECONDS);
   return items;
-}
-
-async function readCachedArray<T>(redis: ReturnType<typeof getRedis>, key: string) {
-  const cached = await redis.get<unknown>(key);
-  if (cached === null) return null;
-  if (Array.isArray(cached)) return cached as T[];
-
-  if (typeof cached === "string") {
-    try {
-      const parsed = JSON.parse(cached) as unknown;
-      if (Array.isArray(parsed)) return parsed as T[];
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
 }
 
 async function loadRulesFromDb() {
