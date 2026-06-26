@@ -11,6 +11,10 @@ const STATE_PATH = path.join(
   ".gen-commits-clean-code-state.json",
 );
 const MAX_CLEANUP_CYCLES = 3;
+const RUN_CLEAN_CODE_MESSAGE =
+  "Run /clean-code now. Keep behavior unchanged and stop normally when the cleanup pass is complete.";
+const COMMIT_CLEANUP_MESSAGE =
+  "The /clean-code pass changed files. Run /gen-commits again to commit those changes, then stop normally.";
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -211,8 +215,7 @@ async function main() {
         cycle,
       });
       output({
-        followup_message:
-          "The /clean-code pass changed files. Run /gen-commits again to commit those changes, then stop normally.",
+        followup_message: COMMIT_CLEANUP_MESSAGE,
       });
       return;
     }
@@ -228,8 +231,7 @@ async function main() {
       cycle: Number(state.cycle || 0),
     });
     output({
-      followup_message:
-        "Run /clean-code now. Keep behavior unchanged and stop normally when the cleanup pass is complete.",
+      followup_message: RUN_CLEAN_CODE_MESSAGE,
     });
     return;
   }
@@ -241,8 +243,7 @@ async function main() {
       cycle: 0,
     });
     output({
-      followup_message:
-        "Run /clean-code now. Keep behavior unchanged and stop normally when the cleanup pass is complete.",
+      followup_message: RUN_CLEAN_CODE_MESSAGE,
     });
     return;
   }

@@ -5,7 +5,7 @@ export default defineTool({
   description: "Get the current datetime",
   inputSchema: z.object({}),
   async execute() {
-    var dateTime = new Date();
-    return dateTime.toLocaleString(undefined, { timeZoneName: 'short' });
+    const dateTime = new Date();
+    return dateTime.toLocaleString(undefined, { timeZoneName: "short" });
   },
 });
