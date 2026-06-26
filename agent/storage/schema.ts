@@ -91,4 +91,3 @@ export const cacheEntries = pgTable(
 
 export type Rule = typeof rules.$inferSelect;
 export type Skill = typeof skills.$inferSelect;
-export type CacheEntry = typeof cacheEntries.$inferSelect;
