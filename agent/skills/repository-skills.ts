@@ -1,6 +1,6 @@
 import { defineDynamic, defineSkill, type SkillDefinition } from "eve/skills";
 
-import { getSkills, type StoredSkill } from "../lib/storage/rules-skills-repository.js";
+import { getSkills } from "../lib/storage/rules-skills-repository.js";
 
 export default defineDynamic({
   events: {
@@ -15,7 +15,7 @@ async function loadRepositorySkills() {
 
   const entries: Record<string, SkillDefinition> = {};
   for (const skill of skills) {
-    entries[getSkillKey(skill, entries)] = defineSkill({
+    entries[getSkillKey(skill.slug, entries)] = defineSkill({
       description: skill.description ?? `Use when the request matches the ${skill.title} procedure.`,
       markdown: skill.content,
     });
@@ -24,8 +24,8 @@ async function loadRepositorySkills() {
   return entries;
 }
 
-function getSkillKey(skill: StoredSkill, entries: Record<string, SkillDefinition>) {
-  const baseKey = `repo__${slugToSkillKey(skill.slug)}`;
+function getSkillKey(slug: string, entries: Record<string, SkillDefinition>) {
+  const baseKey = `repo__${slugToSkillKey(slug)}`;
   if (!entries[baseKey]) return baseKey;
 
   let suffix = 2;
