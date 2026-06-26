@@ -14,8 +14,8 @@ npm install
 cp .env.example .env.local
 ```
 
-Fill `DATABASE_URL`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN`
-before running database migrations or the storage-backed agent code.
+Fill `DATABASE_URL` before running database migrations or the storage-backed
+agent code.
 
 ## Scripts
 
@@ -39,8 +39,8 @@ agent/
 │   ├── eve.ts         # Eve channel with local dev and Vercel OIDC auth
 │   └── slack.ts       # Slack channel with Vercel Connect auth and thread context
 ├── storage/
+│   ├── cache.ts       # Postgres-backed cache helpers
 │   ├── db.ts          # Lazy Neon/Drizzle database client
-│   ├── redis.ts       # Lazy Upstash Redis client
 │   ├── rules-skills-repository.ts # Cache-aside repository for rules and skills
 │   └── schema.ts      # Versioned Drizzle tables for runtime rules and skills
 └── tools/
@@ -63,6 +63,6 @@ Storage migrations live under `drizzle/`, and approved feature plans live under
 - Replace `placeholderAuth()` in `agent/channels/eve.ts` before exposing the agent in production.
 - Point `connectSlackCredentials(...)` in `agent/channels/slack.ts` at your Vercel Connect Slack client UID and attach its trigger to `/eve/v1/slack` before deploying for Slack messaging.
 - Slack app mentions include recent thread messages since the agent's last reply as context for the next response.
-- Runtime rules and skills are stored in Neon Postgres and read through an Upstash Redis cache-aside repository.
+- Runtime rules and skills are stored in Neon Postgres and read through a Postgres-backed cache-aside repository.
 - The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
 - Compiled artifacts and local runtime state are written under `.eve/` and are gitignored.
