@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export type StorageMetadata = Record<string, unknown>;
+export type CacheValue = unknown;
 
 function timestamps() {
   return {
@@ -77,5 +78,17 @@ export const skills = pgTable(
   ]
 );
 
+export const cacheEntries = pgTable(
+  "cache_entries",
+  {
+    key: text("key").primaryKey(),
+    value: jsonb("value").$type<CacheValue>().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ...timestamps(),
+  },
+  (table) => [index("cache_entries_expires_at_idx").on(table.expiresAt)]
+);
+
 export type Rule = typeof rules.$inferSelect;
 export type Skill = typeof skills.$inferSelect;
+export type CacheEntry = typeof cacheEntries.$inferSelect;
