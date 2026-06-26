@@ -78,6 +78,4 @@ export const skills = pgTable(
 );
 
 export type Rule = typeof rules.$inferSelect;
-export type NewRule = typeof rules.$inferInsert;
 export type Skill = typeof skills.$inferSelect;
-export type NewSkill = typeof skills.$inferInsert;

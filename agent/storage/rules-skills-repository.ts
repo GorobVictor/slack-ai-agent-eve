@@ -198,16 +198,16 @@ export async function invalidateRulesSkillsCache() {
 
 async function getCachedArray<T>(key: string, loadFromDb: () => Promise<T[]>) {
   const redis = getRedis();
-  const cached = await readCachedArray<T>(key);
-  if (cached) return cached;
+  const cached = await readCachedArray<T>(redis, key);
+  if (cached !== null) return cached;
 
   const items = await loadFromDb();
   await redis.set(key, JSON.stringify(items), { ex: CACHE_TTL_SECONDS });
   return items;
 }
 
-async function readCachedArray<T>(key: string) {
-  const cached = await getRedis().get<unknown>(key);
+async function readCachedArray<T>(redis: ReturnType<typeof getRedis>, key: string) {
+  const cached = await redis.get<unknown>(key);
   if (cached === null) return null;
   if (Array.isArray(cached)) return cached as T[];
 
