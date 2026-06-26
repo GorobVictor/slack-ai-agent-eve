@@ -1,0 +1,29 @@
+---
+description: Senior JavaScript standards for eve and Slack work
+alwaysApply: true
+---
+
+# Senior JavaScript Standards
+
+- Write clean, minimal JavaScript and TypeScript that is easy for any team member to read.
+- Prefer simple control flow, explicit names, and small functions over clever or overly abstract constructs.
+- Reuse existing local patterns and helpers before introducing new abstractions.
+- Keep the main priority in every change: less code, less duplication, and simpler behavior.
+
+# Reuse And Utilities
+
+- Do not duplicate logic when the same behavior appears in multiple places.
+- Extract small utilities for repeated code only when it clearly reduces duplication or improves readability.
+- Keep utilities focused and colocated with nearby code unless the repo already has a shared location for that concern.
+
+# eve And Slack
+
+- Before changing eve behavior, read the relevant installed docs from `node_modules/eve/docs/` when available; otherwise use `https://eve.dev/docs/introduction` and `https://vercel.com/eve`.
+- Preserve eve's filesystem-first architecture: instructions, tools, channels, connections, subagents, schedules, and shared libraries should stay in their expected directories.
+- Keep Slack channel code inside `agent/channels/` focused on Slack integration concerns; avoid mixing channel glue with core agent logic unless the existing architecture requires it.
+
+# Working Style
+
+- Ask a clarifying question when a requirement is ambiguous or when multiple implementations would change the result meaningfully.
+- Do not make changes the user did not ask for.
+- Keep edits scoped, conservative, and aligned with the surrounding codebase.
