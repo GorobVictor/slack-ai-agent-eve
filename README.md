@@ -11,7 +11,11 @@ An [eve](https://eve.dev) agent application scaffolded for Slack and web messagi
 
 ```bash
 npm install
+cp .env.example .env.local
 ```
+
+Fill `DATABASE_URL`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN`
+before running database migrations or the storage-backed agent code.
 
 ## Scripts
 
@@ -21,6 +25,9 @@ npm install
 | `npm run build` | Compile the agent for deployment |
 | `npm run start` | Run the compiled agent |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run db:generate` | Generate Drizzle migrations from the storage schema |
+| `npm run db:migrate` | Apply Drizzle migrations using `.env.local` |
+| `npm run db:studio` | Open Drizzle Studio using `.env.local` |
 
 ## Project layout
 
@@ -31,10 +38,18 @@ agent/
 ├── channels/
 │   ├── eve.ts         # Eve channel with local dev and Vercel OIDC auth
 │   └── slack.ts       # Slack channel with Vercel Connect auth and thread context
+├── storage/
+│   ├── db.ts          # Lazy Neon/Drizzle database client
+│   ├── redis.ts       # Lazy Upstash Redis client
+│   ├── rules-skills-repository.ts # Cache-aside repository for rules and skills
+│   └── schema.ts      # Versioned Drizzle tables for runtime rules and skills
 └── tools/
     ├── get_current_datetime.ts # Returns the current localized datetime
     └── get_weather.ts          # Example weather tool backed by Open-Meteo
 ```
+
+Storage migrations live under `drizzle/`, and approved feature plans live under
+`proto/features/`.
 
 ## Documentation
 
@@ -48,5 +63,6 @@ agent/
 - Replace `placeholderAuth()` in `agent/channels/eve.ts` before exposing the agent in production.
 - Point `connectSlackCredentials(...)` in `agent/channels/slack.ts` at your Vercel Connect Slack client UID and attach its trigger to `/eve/v1/slack` before deploying for Slack messaging.
 - Slack app mentions include recent thread messages since the agent's last reply as context for the next response.
+- Runtime rules and skills are stored in Neon Postgres and read through an Upstash Redis cache-aside repository.
 - The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
 - Compiled artifacts and local runtime state are written under `.eve/` and are gitignored.

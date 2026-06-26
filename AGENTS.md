@@ -6,6 +6,13 @@ from the installed eve package docs. In most installs, those docs are at
 installed `eve` package location first and read its `docs/` directory. If
 package docs are unavailable, use https://eve.dev/docs as a fallback.
 
+## Storage Guidance
+
+Runtime rules and skills are stored in Neon Postgres and cached through Upstash
+Redis. Keep the source of truth in the Drizzle schema under `agent/storage/`,
+generate migrations with `npm run db:generate`, and apply them with
+`npm run db:migrate` after `.env.local` is populated from `.env.example`.
+
 ## Cursor Agent Workflows
 
 This repository includes Cursor guidance under `.cursor/`:
