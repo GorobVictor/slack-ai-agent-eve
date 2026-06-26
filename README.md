@@ -38,11 +38,15 @@ agent/
 ├── channels/
 │   ├── eve.ts         # Eve channel with local dev and Vercel OIDC auth
 │   └── slack.ts       # Slack channel with Vercel Connect auth and thread context
-├── storage/
-│   ├── cache.ts       # Postgres-backed cache helpers
-│   ├── db.ts          # Lazy Neon/Drizzle database client
-│   ├── rules-skills-repository.ts # Cache-aside repository for rules and skills
-│   └── schema.ts      # Versioned Drizzle tables for runtime rules and skills
+├── lib/
+│   └── storage/
+│       ├── cache.ts   # Postgres-backed cache helpers
+│       ├── db.ts      # Lazy Neon/Drizzle database client
+│       ├── rules-skills-repository.ts # Cache-aside repository for rules and skills
+│       └── schema.ts  # Versioned Drizzle tables for runtime rules and skills
+├── skills/
+│   ├── clarifying-questions.md # Procedure for ambiguous client requests
+│   └── repository-skills.ts    # Dynamic skills loaded from Postgres storage
 └── tools/
     ├── get_current_datetime.ts # Returns the current localized datetime
     └── get_weather.ts          # Example weather tool backed by Open-Meteo

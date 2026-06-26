@@ -10,9 +10,10 @@ package docs are unavailable, use https://eve.dev/docs as a fallback.
 
 Runtime rules and skills are stored in Neon Postgres and cached through the
 Postgres-backed `cache_entries` table. Keep the source of truth in the Drizzle
-schema under `agent/storage/`, generate migrations with `npm run db:generate`,
+schema under `agent/lib/storage/`, generate migrations with `npm run db:generate`,
 and apply them with `npm run db:migrate` after `.env.local` is populated from
-`.env.example`.
+`.env.example`. Keep shared storage code under `agent/lib/` so eve does not
+treat it as an unsupported authored directory.
 
 ## Cursor Agent Workflows
 
