@@ -27,6 +27,7 @@
     "@types/node": "24.x",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.10",
+    "microsandbox": "^0.5.10",
     "typescript": "7.0.1-rc"
   },
   "overrides": {
