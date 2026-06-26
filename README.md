@@ -41,10 +41,12 @@ agent/
 - [eve docs](https://eve.dev/docs)
 - Installed package docs: `node_modules/eve/docs/`
 - Agent guidance for AI assistants: [AGENTS.md](./AGENTS.md)
+- Cursor rules, skills, and hooks live under `.cursor/`.
 
 ## Development notes
 
 - Replace `placeholderAuth()` in `agent/channels/eve.ts` before exposing the agent in production.
 - Point `connectSlackCredentials(...)` in `agent/channels/slack.ts` at your Vercel Connect Slack client UID and attach its trigger to `/eve/v1/slack` before deploying for Slack messaging.
 - Slack app mentions include recent thread messages since the agent's last reply as context for the next response.
+- The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
 - Compiled artifacts and local runtime state are written under `.eve/` and are gitignored.
