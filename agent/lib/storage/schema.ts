@@ -15,6 +15,13 @@ import {
 export type StorageMetadata = Record<string, unknown>;
 export type CacheValue = unknown;
 export type SlackMessageAnalysisStatus = "pending" | "processing" | "completed" | "failed";
+export type ReviewStatus = "approved" | "review";
+export type SlackArtifactGenerationStatus =
+  | "pending"
+  | "processing"
+  | "review"
+  | "skipped"
+  | "failed";
 
 function timestamps() {
   return {
@@ -34,6 +41,7 @@ export const rules = pgTable(
     scope: text("scope").notNull().default("global"),
     enabled: boolean("enabled").notNull().default(true),
     active: boolean("active").notNull().default(true),
+    reviewStatus: text("review_status").$type<ReviewStatus>().notNull().default("approved"),
     priority: integer("priority").notNull().default(0),
     metadata: jsonb("metadata").$type<StorageMetadata>().notNull().default(sql`'{}'::jsonb`),
     supersedesId: uuid("supersedes_id").references((): AnyPgColumn => rules.id),
@@ -62,6 +70,7 @@ export const skills = pgTable(
     content: text("content").notNull(),
     enabled: boolean("enabled").notNull().default(true),
     active: boolean("active").notNull().default(true),
+    reviewStatus: text("review_status").$type<ReviewStatus>().notNull().default("approved"),
     priority: integer("priority").notNull().default(0),
     metadata: jsonb("metadata").$type<StorageMetadata>().notNull().default(sql`'{}'::jsonb`),
     supersedesId: uuid("supersedes_id").references((): AnyPgColumn => skills.id),
@@ -107,6 +116,12 @@ export const slackMessageAnalytics = pgTable(
       .default("pending"),
     analysisError: text("analysis_error"),
     analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
+    artifactGenerationStatus: text("artifact_generation_status")
+      .$type<SlackArtifactGenerationStatus>()
+      .notNull()
+      .default("pending"),
+    artifactGenerationError: text("artifact_generation_error"),
+    artifactGeneratedAt: timestamp("artifact_generated_at", { withTimezone: true }),
     metadata: jsonb("metadata").$type<StorageMetadata>().notNull().default(sql`'{}'::jsonb`),
     ...timestamps(),
   },
@@ -117,6 +132,11 @@ export const slackMessageAnalytics = pgTable(
       table.messageTs
     ),
     index("slack_message_analytics_status_created_at_idx").on(
+      table.analysisStatus,
+      table.createdAt
+    ),
+    index("slack_message_analytics_artifact_generation_idx").on(
+      table.artifactGenerationStatus,
       table.analysisStatus,
       table.createdAt
     ),

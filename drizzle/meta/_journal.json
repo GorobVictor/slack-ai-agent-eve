@@ -22,6 +22,13 @@
       "when": 1782806971338,
       "tag": "0002_late_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782837519788,
+      "tag": "0003_illegal_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }
