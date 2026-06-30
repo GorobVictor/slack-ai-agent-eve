@@ -3,6 +3,7 @@ import {
   defaultSlackAuth,
   loadThreadContextMessages,
   slackChannel,
+  type SlackContext,
   type SlackMessage,
 } from "eve/channels/slack";
 
@@ -11,19 +12,26 @@ import { recordSlackUserMessage } from "#lib/storage/slack-message-analytics-rep
 export default slackChannel({
   credentials: connectSlackCredentials("slack/eve"),
   async onAppMention(ctx, message) {
-    const auth = defaultSlackAuth(message, ctx);
-    await recordIncomingSlackMessage(message);
-
-    const prior = await loadThreadContextMessages(ctx.thread, message, {
-      since: "last-agent-reply",
-    });
-    if (prior.length === 0) return { auth };
-    const transcript = prior
-      .map((m) => `${m.isMe ? "you" : (m.user ?? "user")}: ${m.markdown}`)
-      .join("\n");
-    return { auth, context: [`Recent thread messages since your last reply:\n\n${transcript}`] };
+    return handleSlackMessage(ctx, message);
+  },
+  async onDirectMessage(ctx, message) {
+    return handleSlackMessage(ctx, message);
   },
 });
+
+async function handleSlackMessage(ctx: SlackContext, message: SlackMessage) {
+  const auth = defaultSlackAuth(message, ctx);
+  await recordIncomingSlackMessage(message);
+
+  const prior = await loadThreadContextMessages(ctx.thread, message, {
+    since: "last-agent-reply",
+  });
+  if (prior.length === 0) return { auth };
+  const transcript = prior
+    .map((m) => `${m.isMe ? "you" : (m.user ?? "user")}: ${m.markdown}`)
+    .join("\n");
+  return { auth, context: [`Recent thread messages since your last reply:\n\n${transcript}`] };
+}
 
 async function recordIncomingSlackMessage(message: SlackMessage) {
   try {
