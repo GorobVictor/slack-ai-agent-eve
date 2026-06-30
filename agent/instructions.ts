@@ -16,11 +16,9 @@ async function loadRepositoryInstructions() {
 
 async function buildInstructionsPrompt() {
   const { inventory } = await loadArtifactInventory();
-  let rulesPrompt = "";
-
-  for (const rule of inventory.rules) {
-    rulesPrompt += `- ${rule.slug}: ${rule.title} - ${rule.scope}\n`;
-  }
+  const rulesPrompt = inventory.rules
+    .map((rule) => `- ${rule.slug}: ${rule.title} - ${rule.scope}\n`)
+    .join("");
 
   return INSTRUCTIONS_PROMPT + rulesPrompt;
 }
