@@ -1,8 +1,15 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { deleteCacheValues, getCacheValue, setCacheValue } from "./cache.js";
 import { getDb } from "./db.js";
-import { type Rule, type Skill, type StorageMetadata, rules, skills } from "./schema.js";
+import {
+  type ReviewStatus,
+  type Rule,
+  type Skill,
+  type StorageMetadata,
+  rules,
+  skills,
+} from "./schema.js";
 
 const RULES_CACHE_KEY = "eve:rules:v1";
 const SKILLS_CACHE_KEY = "eve:skills:v1";
@@ -17,6 +24,7 @@ export type StoredRule = {
   scope: string;
   enabled: boolean;
   active: boolean;
+  reviewStatus: ReviewStatus;
   priority: number;
   metadata: StorageMetadata;
   supersedesId: string | null;
@@ -33,6 +41,7 @@ export type StoredSkill = {
   content: string;
   enabled: boolean;
   active: boolean;
+  reviewStatus: ReviewStatus;
   priority: number;
   metadata: StorageMetadata;
   supersedesId: string | null;
@@ -58,6 +67,24 @@ export type UpsertSkillVersionInput = {
   metadata?: StorageMetadata;
 };
 
+export type CreateRuleReviewCandidateInput = {
+  slug: string;
+  title: string;
+  content: string;
+  scope?: string;
+  priority?: number;
+  metadata?: StorageMetadata;
+};
+
+export type CreateSkillReviewCandidateInput = {
+  slug: string;
+  title: string;
+  description?: string | null;
+  content: string;
+  priority?: number;
+  metadata?: StorageMetadata;
+};
+
 export async function getRules() {
   return getCachedArray(RULES_CACHE_KEY, loadRulesFromDb);
 }
@@ -75,57 +102,58 @@ export async function upsertRuleVersion(input: UpsertRuleVersionInput) {
   const db = getDb();
   const now = new Date();
 
-  const created = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(rules)
-      .where(and(eq(rules.slug, input.slug), eq(rules.active, true)))
-      .limit(1);
+  const [current] = await db
+    .select()
+    .from(rules)
+    .where(and(eq(rules.slug, input.slug), eq(rules.active, true)))
+    .limit(1);
 
-    if (!current) {
-      const [firstVersion] = await tx
-        .insert(rules)
-        .values({
-          slug: input.slug,
-          version: 1,
-          title: input.title,
-          content: input.content,
-          scope: input.scope ?? "global",
-          enabled: true,
-          active: true,
-          priority: input.priority ?? 0,
-          metadata: input.metadata ?? {},
-          updatedAt: now,
-        })
-        .returning();
+  const version = await getNextRuleVersion(input.slug);
 
-      return firstVersion;
-    }
-
-    await tx
-      .update(rules)
-      .set({ active: false, enabled: false, updatedAt: now })
-      .where(eq(rules.id, current.id));
-
-    const [nextVersion] = await tx
+  if (!current) {
+    const [firstVersion] = await db
       .insert(rules)
       .values({
         slug: input.slug,
-        version: current.version + 1,
+        version,
         title: input.title,
         content: input.content,
-        scope: input.scope ?? current.scope,
+        scope: input.scope ?? "global",
         enabled: true,
         active: true,
-        priority: input.priority ?? current.priority,
-        metadata: input.metadata ?? current.metadata,
-        supersedesId: current.id,
+        reviewStatus: "approved",
+        priority: input.priority ?? 0,
+        metadata: input.metadata ?? {},
         updatedAt: now,
       })
       .returning();
 
-    return nextVersion;
-  });
+    await invalidateRulesSkillsCache();
+    return serializeRule(firstVersion);
+  }
+
+  await db
+    .update(rules)
+    .set({ active: false, enabled: false, updatedAt: now })
+    .where(eq(rules.id, current.id));
+
+  const [created] = await db
+    .insert(rules)
+    .values({
+      slug: input.slug,
+      version,
+      title: input.title,
+      content: input.content,
+      scope: input.scope ?? current.scope,
+      enabled: true,
+      active: true,
+      reviewStatus: "approved",
+      priority: input.priority ?? current.priority,
+      metadata: input.metadata ?? current.metadata,
+      supersedesId: current.id,
+      updatedAt: now,
+    })
+    .returning();
 
   await invalidateRulesSkillsCache();
   return serializeRule(created);
@@ -135,59 +163,108 @@ export async function upsertSkillVersion(input: UpsertSkillVersionInput) {
   const db = getDb();
   const now = new Date();
 
-  const created = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(skills)
-      .where(and(eq(skills.slug, input.slug), eq(skills.active, true)))
-      .limit(1);
+  const [current] = await db
+    .select()
+    .from(skills)
+    .where(and(eq(skills.slug, input.slug), eq(skills.active, true)))
+    .limit(1);
 
-    if (!current) {
-      const [firstVersion] = await tx
-        .insert(skills)
-        .values({
-          slug: input.slug,
-          version: 1,
-          title: input.title,
-          description: input.description ?? null,
-          content: input.content,
-          enabled: true,
-          active: true,
-          priority: input.priority ?? 0,
-          metadata: input.metadata ?? {},
-          updatedAt: now,
-        })
-        .returning();
+  const version = await getNextSkillVersion(input.slug);
 
-      return firstVersion;
-    }
-
-    await tx
-      .update(skills)
-      .set({ active: false, enabled: false, updatedAt: now })
-      .where(eq(skills.id, current.id));
-
-    const [nextVersion] = await tx
+  if (!current) {
+    const [firstVersion] = await db
       .insert(skills)
       .values({
         slug: input.slug,
-        version: current.version + 1,
+        version,
         title: input.title,
-        description: input.description ?? current.description,
+        description: input.description ?? null,
         content: input.content,
         enabled: true,
         active: true,
-        priority: input.priority ?? current.priority,
-        metadata: input.metadata ?? current.metadata,
-        supersedesId: current.id,
+        reviewStatus: "approved",
+        priority: input.priority ?? 0,
+        metadata: input.metadata ?? {},
         updatedAt: now,
       })
       .returning();
 
-    return nextVersion;
-  });
+    await invalidateRulesSkillsCache();
+    return serializeSkill(firstVersion);
+  }
+
+  await db
+    .update(skills)
+    .set({ active: false, enabled: false, updatedAt: now })
+    .where(eq(skills.id, current.id));
+
+  const [created] = await db
+    .insert(skills)
+    .values({
+      slug: input.slug,
+      version,
+      title: input.title,
+      description: input.description ?? current.description,
+      content: input.content,
+      enabled: true,
+      active: true,
+      reviewStatus: "approved",
+      priority: input.priority ?? current.priority,
+      metadata: input.metadata ?? current.metadata,
+      supersedesId: current.id,
+      updatedAt: now,
+    })
+    .returning();
 
   await invalidateRulesSkillsCache();
+  return serializeSkill(created);
+}
+
+export async function createRuleReviewCandidate(input: CreateRuleReviewCandidateInput) {
+  const db = getDb();
+  const now = new Date();
+
+  const [created] = await db
+    .insert(rules)
+    .values({
+      slug: input.slug,
+      version: await getNextRuleVersion(input.slug),
+      title: input.title,
+      content: input.content,
+      scope: input.scope ?? "global",
+      enabled: false,
+      active: false,
+      reviewStatus: "review",
+      priority: input.priority ?? 0,
+      metadata: input.metadata ?? {},
+      updatedAt: now,
+    })
+    .returning();
+
+  return serializeRule(created);
+}
+
+export async function createSkillReviewCandidate(input: CreateSkillReviewCandidateInput) {
+  const db = getDb();
+  const now = new Date();
+
+  const [created] = await db
+    .insert(skills)
+    .values({
+      slug: input.slug,
+      version: await getNextSkillVersion(input.slug),
+      title: input.title,
+      description: input.description ?? null,
+      content: input.content,
+      enabled: false,
+      active: false,
+      reviewStatus: "review",
+      priority: input.priority ?? 0,
+      metadata: input.metadata ?? {},
+      updatedAt: now,
+    })
+    .returning();
+
   return serializeSkill(created);
 }
 
@@ -224,6 +301,24 @@ async function loadSkillsFromDb() {
   return rows.map(serializeSkill);
 }
 
+async function getNextRuleVersion(slug: string) {
+  const [row] = await getDb()
+    .select({ nextVersion: sql<number>`coalesce(max(${rules.version}), 0) + 1` })
+    .from(rules)
+    .where(eq(rules.slug, slug));
+
+  return Number(row?.nextVersion ?? 1);
+}
+
+async function getNextSkillVersion(slug: string) {
+  const [row] = await getDb()
+    .select({ nextVersion: sql<number>`coalesce(max(${skills.version}), 0) + 1` })
+    .from(skills)
+    .where(eq(skills.slug, slug));
+
+  return Number(row?.nextVersion ?? 1);
+}
+
 function serializeRule(rule: Rule): StoredRule {
   return {
     id: rule.id,
@@ -234,6 +329,7 @@ function serializeRule(rule: Rule): StoredRule {
     scope: rule.scope,
     enabled: rule.enabled,
     active: rule.active,
+    reviewStatus: rule.reviewStatus,
     priority: rule.priority,
     metadata: rule.metadata,
     supersedesId: rule.supersedesId,
@@ -252,6 +348,7 @@ function serializeSkill(skill: Skill): StoredSkill {
     content: skill.content,
     enabled: skill.enabled,
     active: skill.active,
+    reviewStatus: skill.reviewStatus,
     priority: skill.priority,
     metadata: skill.metadata,
     supersedesId: skill.supersedesId,

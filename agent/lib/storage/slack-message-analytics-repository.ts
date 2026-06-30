@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 
 import { getDb } from "./db.js";
 import {
+  type SlackArtifactGenerationStatus,
   type SlackMessageAnalytics,
   type SlackMessageAnalysisStatus,
   type StorageMetadata,
@@ -20,6 +21,9 @@ export type StoredSlackMessageAnalysis = {
   analysisStatus: SlackMessageAnalysisStatus;
   analysisError: string | null;
   analyzedAt: string | null;
+  artifactGenerationStatus: SlackArtifactGenerationStatus;
+  artifactGenerationError: string | null;
+  artifactGeneratedAt: string | null;
   metadata: StorageMetadata;
   createdAt: string;
   updatedAt: string;
@@ -41,13 +45,20 @@ export type CompleteSlackMessageAnalysisInput = {
   metadata?: StorageMetadata;
 };
 
+export type CompleteSlackArtifactGenerationInput = {
+  id: string;
+  status: Extract<SlackArtifactGenerationStatus, "review" | "skipped">;
+  metadata?: StorageMetadata;
+};
+
 const MAX_ERROR_LENGTH = 2_000;
 
 type RawSlackMessageAnalysisRow = Omit<
   StoredSlackMessageAnalysis,
-  "analyzedAt" | "createdAt" | "updatedAt"
+  "analyzedAt" | "artifactGeneratedAt" | "createdAt" | "updatedAt"
 > & {
   analyzedAt: Date | string | null;
+  artifactGeneratedAt: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 };
@@ -116,6 +127,9 @@ export async function claimPendingSlackMessageAnalyses(limit: number) {
       analysis_status as "analysisStatus",
       analysis_error as "analysisError",
       analyzed_at as "analyzedAt",
+      artifact_generation_status as "artifactGenerationStatus",
+      artifact_generation_error as "artifactGenerationError",
+      artifact_generated_at as "artifactGeneratedAt",
       metadata,
       created_at as "createdAt",
       updated_at as "updatedAt"
@@ -137,6 +151,84 @@ export async function completeSlackMessageAnalysis(input: CompleteSlackMessageAn
       updatedAt: now,
     })
     .where(eq(slackMessageAnalytics.id, input.id))
+    .returning();
+
+  return row ? serializeSlackMessageAnalysis(row) : null;
+}
+
+export async function claimPendingSlackArtifactGenerations(limit: number) {
+  const safeLimit = Math.max(1, Math.min(limit, 50));
+  const now = new Date();
+
+  const result = await getDb().execute<RawSlackMessageAnalysisRow>(sql`
+    with claimed as (
+      select id
+      from ${slackMessageAnalytics}
+      where analysis_status = 'completed'
+        and artifact_generation_status = 'pending'
+        and intent in ('skill.create', 'skill.improve', 'rule.create', 'rule.improve')
+      order by analyzed_at asc nulls last, created_at asc
+      limit ${safeLimit}
+      for update skip locked
+    )
+    update ${slackMessageAnalytics}
+    set
+      artifact_generation_status = 'processing',
+      artifact_generation_error = null,
+      updated_at = ${now}
+    where id in (select id from claimed)
+    returning
+      id,
+      team_id as "teamId",
+      channel_id as "channelId",
+      thread_ts as "threadTs",
+      message_ts as "messageTs",
+      user_id as "userId",
+      user_message as "userMessage",
+      intent,
+      analysis_status as "analysisStatus",
+      analysis_error as "analysisError",
+      analyzed_at as "analyzedAt",
+      artifact_generation_status as "artifactGenerationStatus",
+      artifact_generation_error as "artifactGenerationError",
+      artifact_generated_at as "artifactGeneratedAt",
+      metadata,
+      created_at as "createdAt",
+      updated_at as "updatedAt"
+  `);
+
+  return result.rows.map(serializeRawSlackMessageAnalysis);
+}
+
+export async function completeSlackArtifactGeneration(
+  input: CompleteSlackArtifactGenerationInput
+) {
+  const now = new Date();
+  const [row] = await getDb()
+    .update(slackMessageAnalytics)
+    .set({
+      artifactGenerationStatus: input.status,
+      artifactGenerationError: null,
+      artifactGeneratedAt: now,
+      metadata: sql`${slackMessageAnalytics.metadata} || ${input.metadata ?? {}}::jsonb`,
+      updatedAt: now,
+    })
+    .where(eq(slackMessageAnalytics.id, input.id))
+    .returning();
+
+  return row ? serializeSlackMessageAnalysis(row) : null;
+}
+
+export async function failSlackArtifactGeneration(id: string, error: unknown) {
+  const now = new Date();
+  const [row] = await getDb()
+    .update(slackMessageAnalytics)
+    .set({
+      artifactGenerationStatus: "failed",
+      artifactGenerationError: formatAnalysisError(error),
+      updatedAt: now,
+    })
+    .where(eq(slackMessageAnalytics.id, id))
     .returning();
 
   return row ? serializeSlackMessageAnalysis(row) : null;
@@ -170,6 +262,9 @@ function serializeSlackMessageAnalysis(row: SlackMessageAnalytics): StoredSlackM
     analysisStatus: row.analysisStatus,
     analysisError: row.analysisError,
     analyzedAt: row.analyzedAt?.toISOString() ?? null,
+    artifactGenerationStatus: row.artifactGenerationStatus,
+    artifactGenerationError: row.artifactGenerationError,
+    artifactGeneratedAt: row.artifactGeneratedAt?.toISOString() ?? null,
     metadata: row.metadata,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -180,6 +275,9 @@ function serializeRawSlackMessageAnalysis(row: RawSlackMessageAnalysisRow): Stor
   return {
     ...row,
     analyzedAt: row.analyzedAt ? new Date(row.analyzedAt).toISOString() : null,
+    artifactGeneratedAt: row.artifactGeneratedAt
+      ? new Date(row.artifactGeneratedAt).toISOString()
+      : null,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };
