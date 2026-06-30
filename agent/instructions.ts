@@ -18,8 +18,8 @@ async function buildInstructionsPrompt() {
   const { inventory } = await loadArtifactInventory();
   let rulesPrompt = "";
 
-  for (let i = 0; i < inventory.rules.length; i++) {
-    rulesPrompt += `- ${inventory.rules[i].slug}: ${inventory.rules[i].title} - ${inventory.rules[i].scope}\n`;
+  for (const rule of inventory.rules) {
+    rulesPrompt += `- ${rule.slug}: ${rule.title} - ${rule.scope}\n`;
   }
 
   return INSTRUCTIONS_PROMPT + rulesPrompt;
