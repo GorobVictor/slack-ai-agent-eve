@@ -8,12 +8,19 @@ package docs are unavailable, use https://eve.dev/docs as a fallback.
 
 ## Storage Guidance
 
-Runtime rules and skills are stored in Neon Postgres and cached through the
-Postgres-backed `cache_entries` table. Keep the source of truth in the Drizzle
-schema under `agent/lib/storage/`, generate migrations with `npm run db:generate`,
-and apply them with `npm run db:migrate` after `.env.local` is populated from
-`.env.example`. Keep shared storage code under `agent/lib/` so eve does not
-treat it as an unsupported authored directory.
+Runtime rules, skills, and Slack message analytics are stored in Neon Postgres.
+Rules and skills are cached through the Postgres-backed `cache_entries` table.
+Keep the source of truth in the Drizzle schema under `agent/lib/storage/`,
+generate migrations with `npm run db:generate`, and apply them with
+`npm run db:migrate` after `.env.local` is populated from `.env.example`.
+Keep shared storage and analytics code under `agent/lib/` so eve does not treat
+it as an unsupported authored directory.
+
+## Prompt Guidance
+
+Keep reusable prompt constants under `agent/lib/prompts/{feature}-prompt.ts`.
+Write editable prompt text as multiline template literals so it reads like
+markdown while staying inside eve's supported shared-library directory.
 
 ## Cursor Agent Workflows
 

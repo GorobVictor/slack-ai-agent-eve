@@ -21,6 +21,8 @@ alwaysApply: true
 - Before changing eve behavior, read the relevant installed docs from `node_modules/eve/docs/` when available; otherwise use `https://eve.dev/docs/introduction` and `https://vercel.com/eve`.
 - Preserve eve's filesystem-first architecture: instructions, tools, channels, connections, subagents, schedules, and shared libraries should stay in their expected directories.
 - Keep Slack channel code inside `agent/channels/` focused on Slack integration concerns; avoid mixing channel glue with core agent logic unless the existing architecture requires it.
+- Keep authored prompt constants in `agent/lib/prompts/{feature}-prompt.ts`; do not add unsupported agent-root directories like `agent/prompts/`.
+- Write editable prompt constants as multiline template literals so they read like markdown, instead of arrays of joined strings.
 
 # Working Style
 
