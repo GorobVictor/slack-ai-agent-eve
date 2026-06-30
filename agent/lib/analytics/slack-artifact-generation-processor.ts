@@ -2,8 +2,6 @@ import { generateSlackArtifactCandidate } from "./slack-artifact-generation.js";
 import {
   createRuleReviewCandidate,
   createSkillReviewCandidate,
-  type StoredRule,
-  type StoredSkill,
 } from "#lib/storage/rules-skills-repository.js";
 import {
   claimPendingSlackArtifactGenerations,

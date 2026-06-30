@@ -131,7 +131,8 @@ export async function generateSlackArtifactCandidate(
 
   const outputTarget = normalizeTarget(result.output.target ?? result.output.type);
   const outputResult =
-    normalizeResult(result.output.result) ?? (outputTarget && result.output.content ? "candidate" : "skip");
+    normalizeResult(result.output.result) ??
+    (outputTarget && result.output.content ? "candidate" : "skip");
   const reason = result.output.reason ?? "Generated from a completed Slack analytics row.";
 
   if (outputResult === "skip") {
