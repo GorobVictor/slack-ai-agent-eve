@@ -1,10 +1,19 @@
 import { connectSlackCredentials } from "@vercel/connect/eve";
-import { defaultSlackAuth, loadThreadContextMessages, slackChannel } from "eve/channels/slack";
+import {
+  defaultSlackAuth,
+  loadThreadContextMessages,
+  slackChannel,
+  type SlackMessage,
+} from "eve/channels/slack";
+
+import { recordSlackUserMessage } from "#lib/storage/slack-message-analytics-repository.js";
 
 export default slackChannel({
   credentials: connectSlackCredentials("slack/eve"),
   async onAppMention(ctx, message) {
     const auth = defaultSlackAuth(message, ctx);
+    await recordIncomingSlackMessage(message);
+
     const prior = await loadThreadContextMessages(ctx.thread, message, {
       since: "last-agent-reply",
     });
@@ -15,3 +24,34 @@ export default slackChannel({
     return { auth, context: [`Recent thread messages since your last reply:\n\n${transcript}`] };
   },
 });
+
+async function recordIncomingSlackMessage(message: SlackMessage) {
+  try {
+    await recordSlackUserMessage({
+      teamId: message.teamId ?? "unknown",
+      channelId: message.channelId,
+      threadTs: message.threadTs,
+      messageTs: message.ts,
+      userId: message.author?.userId ?? "unknown",
+      userMessage: message.markdown || message.text,
+      metadata: {
+        source: "slack",
+        eventType: "app_mention",
+        slack: {
+          attachmentCount: message.attachments.length,
+          author: message.author
+            ? {
+                userName: message.author.userName,
+                fullName: message.author.fullName,
+                isBot: message.author.isBot,
+                isMe: message.author.isMe,
+              }
+            : null,
+          hasRawEvent: Object.keys(message.raw).length > 0,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Failed to record Slack message analytics", error);
+  }
+}
