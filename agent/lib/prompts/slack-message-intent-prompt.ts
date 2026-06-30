@@ -14,7 +14,7 @@ Choose exactly one intent:
 - \`task_request\`: The user asks the agent to perform a concrete task or make a change.
 - \`other\`: The message does not fit the categories above.
 
-Return only the structured output requested by the caller. Keep the rationale short and do not include private chain-of-thought.
+Return only the structured output requested by the caller. Include a \`confidence\` number from 0 to 1 when possible. Keep the rationale short and do not include private chain-of-thought.
 
 Use \`skill_improvement\` only when the message is directly about improving the agent's skills, rules, prompts, instructions, or behavior. For ordinary implementation work, use \`task_request\`.
 `.trim();

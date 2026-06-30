@@ -24,7 +24,7 @@ const intentSchema = z.object({
       "other",
     ])
     .describe("The single best intent category for the Slack message."),
-  confidence: z.number().min(0).max(1).describe("Confidence score from 0 to 1."),
+  confidence: z.number().min(0).max(1).optional().describe("Confidence score from 0 to 1."),
   rationale: z.string().max(280).describe("Short explanation without private chain-of-thought."),
 });
 
@@ -68,7 +68,7 @@ export async function analyzeSlackMessageIntent(
     intent: result.output.intent,
     metadata: {
       analysis: {
-        confidence: result.output.confidence,
+        confidence: result.output.confidence ?? null,
         rationale: result.output.rationale,
         model: ANALYSIS_MODEL,
         responseModel: result.response.modelId,
