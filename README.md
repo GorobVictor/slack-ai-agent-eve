@@ -40,6 +40,7 @@ agent/
 │   └── slack.ts       # Slack channel with Vercel Connect auth and thread context
 ├── lib/
 │   ├── analytics/
+│   │   ├── artifact-inventory.ts               # Active DB skill/rule context for analytics
 │   │   ├── slack-message-analysis-processor.ts # Processes pending Slack analytics rows
 │   │   └── slack-message-intent.ts             # Structured intent classification
 │   ├── prompts/
@@ -75,7 +76,7 @@ Storage migrations live under `drizzle/`, and approved feature plans live under
 - Replace `placeholderAuth()` in `agent/channels/eve.ts` before exposing the agent in production.
 - Point `connectSlackCredentials(...)` in `agent/channels/slack.ts` at your Vercel Connect Slack client UID and attach its trigger to `/eve/v1/slack` before deploying for Slack messaging.
 - Slack app mentions include recent thread messages since the agent's last reply as context for the next response.
-- Slack app mentions are recorded in Neon Postgres for analytics, then classified asynchronously by the `slack-message-analytics` schedule.
+- Slack app mentions are recorded in Neon Postgres for analytics, then classified asynchronously into DB-backed skill/rule signals by the `slack-message-analytics` schedule.
 - Runtime rules and skills are stored in Neon Postgres and read through a Postgres-backed cache-aside repository.
 - Editable prompt constants live under `agent/lib/prompts/` as multiline template literals.
 - The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
