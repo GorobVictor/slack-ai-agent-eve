@@ -34,7 +34,7 @@ agent code.
 ```text
 agent/
 ├── agent.ts           # Agent runtime config (model, name, build, …)
-├── instructions.md    # Always-on agent instructions
+├── instructions.ts    # Dynamic always-on agent instructions
 ├── channels/
 │   ├── eve.ts         # Eve channel with local dev and Vercel OIDC auth
 │   └── slack.ts       # Slack channel with Vercel Connect auth and thread context
@@ -46,6 +46,7 @@ agent/
 │   │   ├── slack-message-analysis-processor.ts # Processes pending Slack analytics rows
 │   │   └── slack-message-intent.ts             # Structured intent classification
 │   ├── prompts/
+│   │   ├── instructions-prompt.ts              # Editable base agent instructions prompt
 │   │   ├── slack-artifact-generation-prompt.ts # Editable artifact generation prompt
 │   │   └── slack-message-intent-prompt.ts      # Editable Slack analytics prompt
 │   └── storage/
