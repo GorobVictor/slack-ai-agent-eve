@@ -14,6 +14,7 @@ import {
 
 export type StorageMetadata = Record<string, unknown>;
 export type CacheValue = unknown;
+export type SlackMessageAnalysisStatus = "pending" | "processing" | "completed" | "failed";
 
 function timestamps() {
   return {
@@ -89,5 +90,41 @@ export const cacheEntries = pgTable(
   (table) => [index("cache_entries_expires_at_idx").on(table.expiresAt)]
 );
 
+export const slackMessageAnalytics = pgTable(
+  "slack_message_analytics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: text("team_id").notNull(),
+    channelId: text("channel_id").notNull(),
+    threadTs: text("thread_ts").notNull(),
+    messageTs: text("message_ts").notNull(),
+    userId: text("user_id").notNull(),
+    userMessage: text("user_message").notNull(),
+    intent: text("intent"),
+    analysisStatus: text("analysis_status")
+      .$type<SlackMessageAnalysisStatus>()
+      .notNull()
+      .default("pending"),
+    analysisError: text("analysis_error"),
+    analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
+    metadata: jsonb("metadata").$type<StorageMetadata>().notNull().default(sql`'{}'::jsonb`),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("slack_message_analytics_message_unique").on(
+      table.teamId,
+      table.channelId,
+      table.messageTs
+    ),
+    index("slack_message_analytics_status_created_at_idx").on(
+      table.analysisStatus,
+      table.createdAt
+    ),
+    index("slack_message_analytics_channel_created_at_idx").on(table.channelId, table.createdAt),
+    index("slack_message_analytics_thread_created_at_idx").on(table.threadTs, table.createdAt),
+  ]
+);
+
 export type Rule = typeof rules.$inferSelect;
 export type Skill = typeof skills.$inferSelect;
+export type SlackMessageAnalytics = typeof slackMessageAnalytics.$inferSelect;

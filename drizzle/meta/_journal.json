@@ -15,6 +15,13 @@
       "when": 1782483336149,
       "tag": "0001_smooth_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782806971338,
+      "tag": "0002_late_dark_phoenix",
+      "breakpoints": true
     }
   ]
 }
