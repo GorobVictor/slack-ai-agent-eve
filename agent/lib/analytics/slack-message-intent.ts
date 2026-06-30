@@ -44,6 +44,8 @@ const intentSchema = z.object({
 });
 
 export type SlackMessageIntent = z.infer<typeof intentSchema>["intent"];
+type SlackMessageTarget = z.infer<typeof intentSchema>["target"];
+type SlackMessageAction = z.infer<typeof intentSchema>["action"];
 
 export type SlackMessageIntentAnalysis = {
   intent: SlackMessageIntent;
@@ -117,13 +119,13 @@ export async function analyzeSlackMessageIntent(
   };
 }
 
-function targetFromIntent(intent: SlackMessageIntent) {
+function targetFromIntent(intent: SlackMessageIntent): NonNullable<SlackMessageTarget> {
   if (intent.startsWith("skill.")) return "skill";
   if (intent.startsWith("rule.")) return "rule";
   return "none";
 }
 
-function actionFromIntent(intent: SlackMessageIntent) {
+function actionFromIntent(intent: SlackMessageIntent): NonNullable<SlackMessageAction> {
   if (intent.endsWith(".create")) return "create";
   if (intent.endsWith(".improve")) return "improve";
   return "none";
