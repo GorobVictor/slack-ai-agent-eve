@@ -1,4 +1,4 @@
-import { defineDynamic, defineSkill, type SkillDefinition } from "eve/skills";
+import { defineDynamic, defineSkill, DynamicResolveContext, type SkillDefinition } from "eve/skills";
 
 import { getSkills } from "../lib/storage/skills-repository.js";
 
@@ -25,7 +25,7 @@ async function loadRepositorySkills() {
 }
 
 function getSkillKey(slug: string, entries: Record<string, SkillDefinition>) {
-  const baseKey = `repo__${slugToSkillKey(slug)}`;
+  const baseKey = `repo-${slugToSkillKey(slug)}`;
   if (!entries[baseKey]) return baseKey;
 
   let suffix = 2;
@@ -36,6 +36,6 @@ function getSkillKey(slug: string, entries: Record<string, SkillDefinition>) {
 }
 
 function slugToSkillKey(slug: string) {
-  const key = slug.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  const key = slug.toLowerCase().replace(/[^a-z0-9_]+/g, "-").replace(/^_+|_+$/g, "");
   return key || "skill";
 }
