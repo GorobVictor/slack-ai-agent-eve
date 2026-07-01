@@ -13,6 +13,9 @@ Skills are cached through the Postgres-backed `cache_entries` table.
 Keep the source of truth in the Drizzle schema under `agent/lib/storage/`,
 generate migrations with `npm run db:generate`, and apply them with
 `npm run db:migrate` after `.env.local` is populated from `.env.example`.
+Runtime skill review, approval, deactivation, and soft deletion are exposed
+through admin-gated tools that require `SKILL_ADMIN_USER_IDS` to contain the
+current Slack user id.
 Keep shared storage and analytics code under `agent/lib/` so eve does not treat
 it as an unsupported authored directory.
 

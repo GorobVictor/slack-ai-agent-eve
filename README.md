@@ -15,7 +15,8 @@ cp .env.example .env.local
 ```
 
 Fill `DATABASE_URL` before running database migrations or the storage-backed
-agent code.
+agent code. Set `SKILL_ADMIN_USER_IDS` to a comma-separated list of Slack user
+ids that may approve, deactivate, or delete DB-backed skills through agent tools.
 
 ## Scripts
 
@@ -45,10 +46,14 @@ agent/
 │   │   ├── slack-artifact-generation-processor.ts # Processes actionable artifact signals
 │   │   ├── slack-message-analysis-processor.ts # Processes pending Slack analytics rows
 │   │   └── slack-message-intent.ts             # Structured intent classification
+│   ├── auth/
+│   │   └── skill-admin.ts                      # Slack user allowlist for skill admin tools
 │   ├── prompts/
 │   │   ├── instructions-prompt.ts              # Editable base agent instructions prompt
 │   │   ├── slack-artifact-generation-prompt.ts # Editable artifact generation prompt
 │   │   └── slack-message-intent-prompt.ts      # Editable Slack analytics prompt
+│   ├── skills/
+│   │   └── tool-output.ts                      # Shared skill serialization for tools
 │   └── storage/
 │       ├── cache.ts   # Postgres-backed cache helpers
 │       ├── db.ts      # Lazy Neon/Drizzle database client
@@ -62,7 +67,12 @@ agent/
 │   ├── clarifying-questions.md # Procedure for ambiguous client requests
 │   └── repository-skills.ts    # Dynamic skills loaded from Postgres storage
 └── tools/
+    ├── approve_skill_review_candidate.ts # Promotes a reviewed DB-backed skill
+    ├── deactivate_active_skill.ts        # Disables an active DB-backed skill
+    ├── delete_skill.ts                   # Soft-deletes a DB-backed skill
     ├── get_current_datetime.ts # Returns the current localized datetime
+    ├── get_active_skills.ts    # Lists active DB-backed runtime skills
+    ├── get_skill_review_candidates.ts # Lists DB-backed skill review candidates
     └── get_weather.ts          # Example weather tool backed by Open-Meteo
 ```
 
@@ -84,6 +94,7 @@ Storage migrations live under `drizzle/`, and approved feature plans live under
 - Slack app mentions are recorded in Neon Postgres for analytics, then classified asynchronously into DB-backed skill signals by the `slack-message-analytics` schedule.
 - Completed skill signals are processed by the `slack-artifact-review` schedule into disabled review candidates with Slack source metadata.
 - Runtime skills are stored in Neon Postgres and read through a Postgres-backed cache-aside repository.
+- Skill review tools are guarded by `SKILL_ADMIN_USER_IDS`; approved candidates become active runtime skills, while deactivation and deletion preserve lifecycle metadata.
 - Editable prompt constants live under `agent/lib/prompts/` as multiline template literals.
 - VS Code launch profiles in `.vscode/launch.json` run `eve dev` and `eve start` with source maps enabled.
 - The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
