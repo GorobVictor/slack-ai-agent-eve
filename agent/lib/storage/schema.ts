@@ -59,6 +59,41 @@ export const skills = pgTable(
   ]
 );
 
+export const schedules = pgTable(
+  "schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull(),
+    version: integer("version").notNull().default(1),
+    title: text("title").notNull(),
+    cron: text("cron").notNull(),
+    markdown: text("markdown").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    ownerUserId: text("owner_user_id").notNull(),
+    metadata: jsonb("metadata").$type<StorageMetadata>().notNull().default(sql`'{}'::jsonb`),
+    supersedesId: uuid("supersedes_id").references((): AnyPgColumn => schedules.id),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("schedules_owner_slug_version_unique").on(
+      table.ownerUserId,
+      table.slug,
+      table.version
+    ),
+    uniqueIndex("schedules_active_owner_slug_unique")
+      .on(table.ownerUserId, table.slug)
+      .where(sql`${table.active} = true`),
+    index("schedules_active_enabled_owner_slug_idx").on(
+      table.active,
+      table.enabled,
+      table.ownerUserId,
+      table.slug
+    ),
+    index("schedules_owner_created_at_idx").on(table.ownerUserId, table.createdAt),
+  ]
+);
+
 export const cacheEntries = pgTable(
   "cache_entries",
   {
@@ -117,4 +152,5 @@ export const slackMessageAnalytics = pgTable(
 );
 
 export type Skill = typeof skills.$inferSelect;
+export type Schedule = typeof schedules.$inferSelect;
 export type SlackMessageAnalytics = typeof slackMessageAnalytics.$inferSelect;

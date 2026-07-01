@@ -14,8 +14,8 @@ import {
 const ANALYSIS_MODEL = process.env.SLACK_MESSAGE_ANALYSIS_MODEL ?? "google/gemma-4-31b-it";
 const PROMPT_HASH = createHash("sha256").update(SLACK_MESSAGE_INTENT_PROMPT).digest("hex");
 
-const intentOptions = ["skill.create", "skill.improve", "none"] as const;
-const targetOptions = ["skill", "none"] as const;
+const intentOptions = ["skill.create", "skill.improve", "schedule.create", "schedule.improve", "none"] as const;
+const targetOptions = ["skill", "schedule", "none"] as const;
 const actionOptions = ["create", "improve", "none"] as const;
 
 const intentSchema = z.object({
@@ -30,7 +30,7 @@ const intentSchema = z.object({
     .string()
     .nullable()
     .optional()
-    .describe("Existing DB skill slug when the intent is an improvement."),
+    .describe("Existing DB skill or schedule slug when the intent is an improvement."),
   suggestedArtifactName: z
     .string()
     .nullable()
@@ -55,7 +55,9 @@ export type SlackMessageIntentAnalysis = {
 export async function analyzeSlackMessageIntent(
   message: StoredSlackMessageAnalysis
 ): Promise<SlackMessageIntentAnalysis> {
-  const { inventory, warnings } = await loadArtifactInventory();
+  const { inventory, warnings } = await loadArtifactInventory({
+    scheduleOwnerUserId: message.userId,
+  });
   const result = await generateText({
     model: ANALYSIS_MODEL,
     output: Output.object({
@@ -80,7 +82,7 @@ export async function analyzeSlackMessageIntent(
         2
       ),
       "",
-      "Existing active and enabled DB skills:",
+      "Existing active and enabled DB artifacts:",
       JSON.stringify(inventory, null, 2),
     ].join("\n"),
   });
@@ -107,6 +109,7 @@ export async function analyzeSlackMessageIntent(
         usage: result.usage,
         inventory: {
           skillCount: inventory.skills.length,
+          scheduleCount: inventory.schedules.length,
           warnings,
         },
         prompt: {
@@ -120,6 +123,7 @@ export async function analyzeSlackMessageIntent(
 
 function targetFromIntent(intent: SlackMessageIntent): NonNullable<SlackMessageTarget> {
   if (intent.startsWith("skill.")) return "skill";
+  if (intent.startsWith("schedule.")) return "schedule";
   return "none";
 }
 

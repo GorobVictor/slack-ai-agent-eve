@@ -29,6 +29,13 @@
       "when": 1782837519788,
       "tag": "0003_illegal_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782948327803,
+      "tag": "0004_same_vance_astro",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { getSkills } from "#lib/storage/skills-repository.js";
+import { getActiveSchedules } from "#lib/storage/schedules-repository.js";
 
 export type ArtifactInventory = {
   skills: Array<{
@@ -6,6 +7,12 @@ export type ArtifactInventory = {
     title: string;
     description: string | null;
     priority: number;
+  }>;
+  schedules: Array<{
+    slug: string;
+    title: string;
+    cron: string;
+    ownerUserId: string;
   }>;
 };
 
@@ -16,11 +23,25 @@ export type ArtifactInventoryResult = {
 
 const EMPTY_INVENTORY: ArtifactInventory = {
   skills: [],
+  schedules: [],
 };
 
-export async function loadArtifactInventory(): Promise<ArtifactInventoryResult> {
+export type LoadArtifactInventoryInput = {
+  scheduleOwnerUserId?: string;
+};
+
+export async function loadArtifactInventory(
+  input: LoadArtifactInventoryInput = {}
+): Promise<ArtifactInventoryResult> {
   try {
-    const skills = await getSkills();
+    const [skills, schedules] = await Promise.all([
+      getSkills(),
+      getActiveSchedules({
+        ownerUserId: input.scheduleOwnerUserId,
+        limit: 100,
+      }),
+    ]);
+
     return {
       inventory: {
         skills: skills.map((skill) => ({
@@ -28,6 +49,12 @@ export async function loadArtifactInventory(): Promise<ArtifactInventoryResult> 
           title: skill.title,
           description: skill.description,
           priority: skill.priority,
+        })),
+        schedules: schedules.map((schedule) => ({
+          slug: schedule.slug,
+          title: schedule.title,
+          cron: schedule.cron,
+          ownerUserId: schedule.ownerUserId,
         })),
       },
       warnings: [],

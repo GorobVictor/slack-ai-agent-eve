@@ -30,6 +30,12 @@ const generationSchema = z.object({
   title: z.string().nullable().optional().describe("Human-readable artifact title."),
   description: z.string().nullable().optional().describe("Skill description."),
   content: z.string().nullable().optional().describe("Full markdown content for the generated artifact."),
+  cron: z.string().nullable().optional().describe("Five-field cron expression for a generated schedule."),
+  markdown: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Full markdown prompt for a generated schedule."),
   confidence: z.union([z.number(), z.string()]).nullable().optional(),
   reason: z.string().max(500).nullable().optional().describe("Short explanation for generation or skip."),
 });
@@ -47,6 +53,17 @@ export type SlackArtifactGenerationResult =
       metadata: StorageMetadata;
     }
   | {
+      status: "candidate";
+      target: "schedule";
+      artifact: {
+        slug: string;
+        title: string;
+        cron: string;
+        markdown: string;
+      };
+      metadata: StorageMetadata;
+    }
+  | {
       status: "skip";
       reason: string;
       metadata: StorageMetadata;
@@ -55,18 +72,20 @@ export type SlackArtifactGenerationResult =
 export async function generateSlackArtifactCandidate(
   message: StoredSlackMessageAnalysis
 ): Promise<SlackArtifactGenerationResult> {
-  const { inventory, warnings } = await loadArtifactInventory();
+  const { inventory, warnings } = await loadArtifactInventory({
+    scheduleOwnerUserId: message.userId,
+  });
   const target = targetFromIntent(message.intent);
 
   if (!target) {
-    return buildSkipResult("The analytics row does not target a skill.", null, warnings);
+    return buildSkipResult("The analytics row does not target a supported artifact.", null, warnings);
   }
 
   const result = await generateText({
     model: GENERATION_MODEL,
     output: Output.object({
       name: "SlackArtifactGeneration",
-      description: "A review candidate for one DB-backed Eve skill.",
+      description: "A generated candidate for one DB-backed Eve artifact.",
       schema: generationSchema,
     }),
     prompt: [
@@ -92,7 +111,7 @@ export async function generateSlackArtifactCandidate(
         2
       ),
       "",
-      "Existing active and enabled DB skills:",
+      "Existing active and enabled DB artifacts:",
       JSON.stringify(inventory, null, 2),
     ].join("\n"),
   });
@@ -107,6 +126,7 @@ export async function generateSlackArtifactCandidate(
       reason: result.output.reason ?? null,
       inventory: {
         skillCount: inventory.skills.length,
+        scheduleCount: inventory.schedules.length,
         warnings,
       },
       prompt: {
@@ -140,6 +160,38 @@ export async function generateSlackArtifactCandidate(
   const slug = normalizeSlug(result.output.slug);
   const title = result.output.title?.trim() || titleFromSlug(slug);
   const content = result.output.content?.trim();
+  const cron = result.output.cron?.trim();
+  const markdown = result.output.markdown?.trim();
+
+  if (target === "schedule") {
+    if (message.intent === "schedule.improve" && !inventory.schedules.some((item) => item.slug === slug)) {
+      return buildSkipResult(
+        "The generated schedule improvement did not match an active schedule.",
+        generationMetadata,
+        warnings
+      );
+    }
+
+    if (!slug || !title || !cron || !markdown || !isFiveFieldCron(cron)) {
+      return buildSkipResult(
+        "The generated schedule was missing a slug, title, cron, or markdown.",
+        generationMetadata,
+        warnings
+      );
+    }
+
+    return {
+      status: "candidate",
+      target,
+      artifact: {
+        slug,
+        title,
+        cron,
+        markdown,
+      },
+      metadata: generationMetadata,
+    };
+  }
 
   if (!slug || !title || !content) {
     return buildSkipResult(
@@ -164,12 +216,14 @@ export async function generateSlackArtifactCandidate(
 
 function targetFromIntent(intent: string | null) {
   if (intent?.startsWith("skill.")) return "skill" as const;
+  if (intent?.startsWith("schedule.")) return "schedule" as const;
   return null;
 }
 
 function normalizeTarget(value: string | null | undefined) {
   const normalized = value?.toLowerCase().trim();
   if (normalized === "skill" || normalized === "skills") return "skill" as const;
+  if (normalized === "schedule" || normalized === "schedules") return "schedule" as const;
   return null;
 }
 
@@ -204,6 +258,10 @@ function titleFromSlug(slug: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function isFiveFieldCron(value: string) {
+  return value.trim().split(/\s+/).length === 5;
 }
 
 function getAnalysisMetadata(metadata: StorageMetadata) {

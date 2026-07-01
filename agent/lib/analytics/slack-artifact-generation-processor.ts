@@ -1,5 +1,6 @@
 import { generateSlackArtifactCandidate } from "./slack-artifact-generation.js";
 import { createSkillReviewCandidate } from "#lib/storage/skills-repository.js";
+import { createSchedule, upsertScheduleVersion } from "#lib/storage/schedules-repository.js";
 import {
   claimPendingSlackArtifactGenerations,
   completeSlackArtifactGeneration,
@@ -36,22 +37,17 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
         continue;
       }
 
-      const artifact = await createSkillReviewCandidate({
-        ...result.artifact,
-        metadata: buildCandidateMetadata(message, result.metadata),
-      });
+      const metadata = buildCandidateMetadata(message, result.metadata);
+      const artifactGenerationMetadata =
+        result.target === "skill"
+          ? await createSkillArtifactGenerationMetadata(result, metadata)
+          : await createScheduleArtifactGenerationMetadata(message, result, metadata);
 
       await completeSlackArtifactGeneration({
         id: message.id,
         status: "review",
         metadata: {
-          artifactGeneration: {
-            status: "review",
-            target: result.target,
-            artifactId: artifact.id,
-            slug: artifact.slug,
-            version: artifact.version,
-          },
+          artifactGeneration: artifactGenerationMetadata,
           ...result.metadata,
         },
       });
@@ -72,6 +68,64 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
     skipped,
     failed,
   };
+}
+
+async function createSkillArtifactGenerationMetadata(
+  result: Extract<Awaited<ReturnType<typeof generateSlackArtifactCandidate>>, { target: "skill" }>,
+  metadata: StorageMetadata
+) {
+  const artifact = await createSkillReviewCandidate({
+    ...result.artifact,
+    metadata,
+  });
+
+  return {
+    status: "review",
+    target: result.target,
+    artifactId: artifact.id,
+    slug: artifact.slug,
+    version: artifact.version,
+  };
+}
+
+async function createScheduleArtifactGenerationMetadata(
+  message: StoredSlackMessageAnalysis,
+  result: Extract<Awaited<ReturnType<typeof generateSlackArtifactCandidate>>, { target: "schedule" }>,
+  metadata: StorageMetadata
+) {
+  const artifact = await createOrImproveSchedule(message, result.artifact, metadata);
+
+  return {
+    status: "review",
+    target: result.target,
+    artifactId: artifact.id,
+    slug: artifact.slug,
+    version: artifact.version,
+    cron: artifact.cron,
+  };
+}
+
+async function createOrImproveSchedule(
+  message: StoredSlackMessageAnalysis,
+  artifact: {
+    slug: string;
+    title: string;
+    cron: string;
+    markdown: string;
+  },
+  metadata: StorageMetadata
+) {
+  const input = {
+    ...artifact,
+    ownerUserId: message.userId,
+    metadata,
+  };
+
+  if (message.intent === "schedule.improve") {
+    return upsertScheduleVersion(input);
+  }
+
+  return createSchedule(input);
 }
 
 function buildCandidateMetadata(
