@@ -373,7 +373,8 @@ Stores Slack messages and asynchronous processing state.
   current forecast.
 
 Skill lifecycle tools are guarded by `requireSkillAdmin`, which reads the Slack
-user id from the eve tool context and checks it against `SKILL_ADMIN_USER_IDS`.
+user id from `ctx.session.auth.current.attributes["user_id"]` and checks it
+against `SKILL_ADMIN_USER_IDS`.
 
 ### Schedules
 

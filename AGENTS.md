@@ -327,9 +327,8 @@ Skill admin tools call `requireSkillAdmin(ctx)` from
 `requireSkillAdmin`:
 
 1. Reads `SKILL_ADMIN_USER_IDS`.
-2. Extracts a Slack user id from common eve auth context paths.
-3. Normalizes values that contain Slack ids matching `U...` or `W...`.
-4. Throws if the env var is empty or the user is not allowed.
+2. Reads the Slack user id from `ctx.session.auth.current.attributes["user_id"]`.
+3. Throws if the env var is empty or the user is not allowed.
 
 Admin-gated tools:
 
