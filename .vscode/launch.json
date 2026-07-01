@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Eve Dev",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/eve/bin/eve.js",
+      "args": ["dev"],
+      "runtimeArgs": ["--enable-source-maps"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env.local",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/.output/**/*.js",
+        "${workspaceFolder}/.output/**/*.mjs",
+        "${workspaceFolder}/.eve/**/*.js",
+        "${workspaceFolder}/.eve/**/*.mjs"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "${workspaceFolder}/node_modules/**"]
+    },
+    {
+      "name": "Debug Eve Start",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/eve/bin/eve.js",
+      "args": ["start"],
+      "runtimeArgs": ["--enable-source-maps"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env.local",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/.output/**/*.js",
+        "${workspaceFolder}/.output/**/*.mjs"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "${workspaceFolder}/node_modules/**"]
+    }
+  ]
+}
