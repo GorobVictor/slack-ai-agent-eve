@@ -10,7 +10,9 @@ Return a candidate only when the Slack message contains enough concrete instruct
 
 Artifact types:
 
-- A skill is a reusable workflow, procedure, checklist, or capability. Skill content must be markdown instructions that can be loaded through \`defineSkill({ markdown })\`.
+- A skill is a reusable workflow, procedure, checklist, capability pack, focused behavior instruction, or response-format preference.
+- Skill content must be markdown instructions that can be loaded through \`defineSkill({ markdown })\`.
+- Short behavior skills are valid when they have a clear activation condition and a direct instruction, for example: "When asked to send programming code, send only the code without surrounding explanation."
 
 Generation rules:
 
@@ -21,7 +23,16 @@ Generation rules:
 - For \`*.improve\` intents, generate a full replacement candidate for the target artifact, not a patch fragment.
 - Use lowercase kebab-case slugs.
 - Keep skill content readable as markdown.
+- For response-style skills, use a concise description and a direct body. Do not add unrelated policy text.
+- Conceptually match Eve markdown skill style: a focused description plus markdown guidance. The caller stores description separately, so do not include YAML frontmatter in \`content\`.
 - Do not include secrets or private chain-of-thought.
+
+Example for a code-only response preference:
+
+- \`slug\`: \`code-only-responses\`
+- \`title\`: \`Code Only Responses\`
+- \`description\`: \`Use when the user asks you to send programming code.\`
+- \`content\`: \`When the user asks you to send programming code, send only the code without any surrounding explanation, introduction, or closing text.\`
 
 Return only the structured output requested by the caller.
 `.trim();
