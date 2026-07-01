@@ -14,8 +14,8 @@ import {
 const ANALYSIS_MODEL = process.env.SLACK_MESSAGE_ANALYSIS_MODEL ?? "google/gemma-4-31b-it";
 const PROMPT_HASH = createHash("sha256").update(SLACK_MESSAGE_INTENT_PROMPT).digest("hex");
 
-const intentOptions = ["skill.create", "skill.improve", "rule.create", "rule.improve", "none"] as const;
-const targetOptions = ["skill", "rule", "none"] as const;
+const intentOptions = ["skill.create", "skill.improve", "none"] as const;
+const targetOptions = ["skill", "none"] as const;
 const actionOptions = ["create", "improve", "none"] as const;
 
 const intentSchema = z.object({
@@ -30,7 +30,7 @@ const intentSchema = z.object({
     .string()
     .nullable()
     .optional()
-    .describe("Existing DB skill/rule slug when the intent is an improvement."),
+    .describe("Existing DB skill slug when the intent is an improvement."),
   suggestedArtifactName: z
     .string()
     .nullable()
@@ -80,7 +80,7 @@ export async function analyzeSlackMessageIntent(
         2
       ),
       "",
-      "Existing active and enabled DB artifacts:",
+      "Existing active and enabled DB skills:",
       JSON.stringify(inventory, null, 2),
     ].join("\n"),
   });
@@ -107,7 +107,6 @@ export async function analyzeSlackMessageIntent(
         usage: result.usage,
         inventory: {
           skillCount: inventory.skills.length,
-          ruleCount: inventory.rules.length,
           warnings,
         },
         prompt: {
@@ -121,7 +120,6 @@ export async function analyzeSlackMessageIntent(
 
 function targetFromIntent(intent: SlackMessageIntent): NonNullable<SlackMessageTarget> {
   if (intent.startsWith("skill.")) return "skill";
-  if (intent.startsWith("rule.")) return "rule";
   return "none";
 }
 

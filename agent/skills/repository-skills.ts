@@ -1,6 +1,6 @@
 import { defineDynamic, defineSkill, type SkillDefinition } from "eve/skills";
 
-import { getSkills } from "../lib/storage/rules-skills-repository.js";
+import { getSkills } from "../lib/storage/skills-repository.js";
 
 export default defineDynamic({
   events: {

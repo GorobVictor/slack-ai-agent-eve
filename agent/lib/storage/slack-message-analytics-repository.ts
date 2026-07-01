@@ -166,7 +166,7 @@ export async function claimPendingSlackArtifactGenerations(limit: number) {
       from ${slackMessageAnalytics}
       where analysis_status = 'completed'
         and artifact_generation_status = 'pending'
-        and intent in ('skill.create', 'skill.improve', 'rule.create', 'rule.improve')
+        and intent in ('skill.create', 'skill.improve')
       order by analyzed_at asc nulls last, created_at asc
       limit ${safeLimit}
       for update skip locked

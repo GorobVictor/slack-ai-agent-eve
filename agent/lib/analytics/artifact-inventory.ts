@@ -1,16 +1,10 @@
-import { getRulesAndSkills } from "#lib/storage/rules-skills-repository.js";
+import { getSkills } from "#lib/storage/skills-repository.js";
 
 export type ArtifactInventory = {
   skills: Array<{
     slug: string;
     title: string;
     description: string | null;
-    priority: number;
-  }>;
-  rules: Array<{
-    slug: string;
-    title: string;
-    scope: string;
     priority: number;
   }>;
 };
@@ -22,12 +16,11 @@ export type ArtifactInventoryResult = {
 
 const EMPTY_INVENTORY: ArtifactInventory = {
   skills: [],
-  rules: [],
 };
 
 export async function loadArtifactInventory(): Promise<ArtifactInventoryResult> {
   try {
-    const { rules, skills } = await getRulesAndSkills();
+    const skills = await getSkills();
     return {
       inventory: {
         skills: skills.map((skill) => ({
@@ -35,12 +28,6 @@ export async function loadArtifactInventory(): Promise<ArtifactInventoryResult> 
           title: skill.title,
           description: skill.description,
           priority: skill.priority,
-        })),
-        rules: rules.map((rule) => ({
-          slug: rule.slug,
-          title: rule.title,
-          scope: rule.scope,
-          priority: rule.priority,
         })),
       },
       warnings: [],

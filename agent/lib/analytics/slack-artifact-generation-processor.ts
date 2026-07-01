@@ -1,8 +1,5 @@
 import { generateSlackArtifactCandidate } from "./slack-artifact-generation.js";
-import {
-  createRuleReviewCandidate,
-  createSkillReviewCandidate,
-} from "#lib/storage/rules-skills-repository.js";
+import { createSkillReviewCandidate } from "#lib/storage/skills-repository.js";
 import {
   claimPendingSlackArtifactGenerations,
   completeSlackArtifactGeneration,
@@ -39,16 +36,10 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
         continue;
       }
 
-      const artifact =
-        result.target === "skill"
-          ? await createSkillReviewCandidate({
-              ...result.artifact,
-              metadata: buildCandidateMetadata(message, result.metadata),
-            })
-          : await createRuleReviewCandidate({
-              ...result.artifact,
-              metadata: buildCandidateMetadata(message, result.metadata),
-            });
+      const artifact = await createSkillReviewCandidate({
+        ...result.artifact,
+        metadata: buildCandidateMetadata(message, result.metadata),
+      });
 
       await completeSlackArtifactGeneration({
         id: message.id,

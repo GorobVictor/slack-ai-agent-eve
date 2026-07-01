@@ -28,8 +28,7 @@ const generationSchema = z.object({
   type: z.string().nullable().optional().describe("Alias for target, accepted for model compatibility."),
   slug: z.string().nullable().optional().describe("Lowercase kebab-case artifact slug."),
   title: z.string().nullable().optional().describe("Human-readable artifact title."),
-  description: z.string().nullable().optional().describe("Skill description; null for rules."),
-  scope: z.string().nullable().optional().describe("Rule scope; default to global for rules."),
+  description: z.string().nullable().optional().describe("Skill description."),
   content: z.string().nullable().optional().describe("Full markdown content for the generated artifact."),
   confidence: z.union([z.number(), z.string()]).nullable().optional(),
   reason: z.string().max(500).nullable().optional().describe("Short explanation for generation or skip."),
@@ -48,17 +47,6 @@ export type SlackArtifactGenerationResult =
       metadata: StorageMetadata;
     }
   | {
-      status: "candidate";
-      target: "rule";
-      artifact: {
-        slug: string;
-        title: string;
-        scope: string;
-        content: string;
-      };
-      metadata: StorageMetadata;
-    }
-  | {
       status: "skip";
       reason: string;
       metadata: StorageMetadata;
@@ -71,14 +59,14 @@ export async function generateSlackArtifactCandidate(
   const target = targetFromIntent(message.intent);
 
   if (!target) {
-    return buildSkipResult("The analytics row does not target a skill or rule.", null, warnings);
+    return buildSkipResult("The analytics row does not target a skill.", null, warnings);
   }
 
   const result = await generateText({
     model: GENERATION_MODEL,
     output: Output.object({
       name: "SlackArtifactGeneration",
-      description: "A review candidate for one DB-backed Eve skill or rule.",
+      description: "A review candidate for one DB-backed Eve skill.",
       schema: generationSchema,
     }),
     prompt: [
@@ -104,7 +92,7 @@ export async function generateSlackArtifactCandidate(
         2
       ),
       "",
-      "Existing active and enabled DB artifacts:",
+      "Existing active and enabled DB skills:",
       JSON.stringify(inventory, null, 2),
     ].join("\n"),
   });
@@ -119,7 +107,6 @@ export async function generateSlackArtifactCandidate(
       reason: result.output.reason ?? null,
       inventory: {
         skillCount: inventory.skills.length,
-        ruleCount: inventory.rules.length,
         warnings,
       },
       prompt: {
@@ -163,27 +150,13 @@ export async function generateSlackArtifactCandidate(
     );
   }
 
-  if (target === "skill") {
-    return {
-      status: "candidate",
-      target,
-      artifact: {
-        slug,
-        title,
-        description: result.output.description?.trim() || null,
-        content,
-      },
-      metadata: generationMetadata,
-    };
-  }
-
   return {
     status: "candidate",
     target,
     artifact: {
       slug,
       title,
-      scope: result.output.scope?.trim() || "global",
+      description: result.output.description?.trim() || null,
       content,
     },
     metadata: generationMetadata,
@@ -192,14 +165,12 @@ export async function generateSlackArtifactCandidate(
 
 function targetFromIntent(intent: string | null) {
   if (intent?.startsWith("skill.")) return "skill" as const;
-  if (intent?.startsWith("rule.")) return "rule" as const;
   return null;
 }
 
 function normalizeTarget(value: string | null | undefined) {
   const normalized = value?.toLowerCase().trim();
   if (normalized === "skill" || normalized === "skills") return "skill" as const;
-  if (normalized === "rule" || normalized === "rules") return "rule" as const;
   return null;
 }
 
