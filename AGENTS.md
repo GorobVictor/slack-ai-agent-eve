@@ -8,8 +8,8 @@ package docs are unavailable, use https://eve.dev/docs as a fallback.
 
 ## Storage Guidance
 
-Runtime rules, skills, and Slack message analytics are stored in Neon Postgres.
-Rules and skills are cached through the Postgres-backed `cache_entries` table.
+Runtime skills and Slack message analytics are stored in Neon Postgres.
+Skills are cached through the Postgres-backed `cache_entries` table.
 Keep the source of truth in the Drizzle schema under `agent/lib/storage/`,
 generate migrations with `npm run db:generate`, and apply them with
 `npm run db:migrate` after `.env.local` is populated from `.env.example`.

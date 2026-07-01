@@ -40,8 +40,8 @@ agent/
 │   └── slack.ts       # Slack channel with Vercel Connect auth and thread context
 ├── lib/
 │   ├── analytics/
-│   │   ├── artifact-inventory.ts               # Active DB skill/rule context for analytics
-│   │   ├── slack-artifact-generation.ts        # Generates skill/rule review candidates
+│   │   ├── artifact-inventory.ts               # Active DB skill context for analytics
+│   │   ├── slack-artifact-generation.ts        # Generates skill review candidates
 │   │   ├── slack-artifact-generation-processor.ts # Processes actionable artifact signals
 │   │   ├── slack-message-analysis-processor.ts # Processes pending Slack analytics rows
 │   │   └── slack-message-intent.ts             # Structured intent classification
@@ -52,11 +52,11 @@ agent/
 │   └── storage/
 │       ├── cache.ts   # Postgres-backed cache helpers
 │       ├── db.ts      # Lazy Neon/Drizzle database client
-│       ├── rules-skills-repository.ts # Cache-aside repository for rules and skills
+│       ├── skills-repository.ts # Cache-aside repository for skills
 │       ├── schema.ts  # Versioned Drizzle tables for runtime data
 │       └── slack-message-analytics-repository.ts # Slack analytics storage access
 ├── schedules/
-│   ├── slack-artifact-review.ts   # Recurring skill/rule review candidate generation
+│   ├── slack-artifact-review.ts   # Recurring skill review candidate generation
 │   └── slack-message-analytics.ts # Recurring async Slack intent analysis
 ├── skills/
 │   ├── clarifying-questions.md # Procedure for ambiguous client requests
@@ -81,9 +81,9 @@ Storage migrations live under `drizzle/`, and approved feature plans live under
 - Replace `placeholderAuth()` in `agent/channels/eve.ts` before exposing the agent in production.
 - Point `connectSlackCredentials(...)` in `agent/channels/slack.ts` at your Vercel Connect Slack client UID and attach its trigger to `/eve/v1/slack` before deploying for Slack messaging.
 - Slack app mentions include recent thread messages since the agent's last reply as context for the next response.
-- Slack app mentions are recorded in Neon Postgres for analytics, then classified asynchronously into DB-backed skill/rule signals by the `slack-message-analytics` schedule.
-- Completed skill/rule signals are processed by the `slack-artifact-review` schedule into disabled review candidates with Slack source metadata.
-- Runtime rules and skills are stored in Neon Postgres and read through a Postgres-backed cache-aside repository.
+- Slack app mentions are recorded in Neon Postgres for analytics, then classified asynchronously into DB-backed skill signals by the `slack-message-analytics` schedule.
+- Completed skill signals are processed by the `slack-artifact-review` schedule into disabled review candidates with Slack source metadata.
+- Runtime skills are stored in Neon Postgres and read through a Postgres-backed cache-aside repository.
 - Editable prompt constants live under `agent/lib/prompts/` as multiline template literals.
 - The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
 - Compiled artifacts and local runtime state are written under `.eve/` and are gitignored.
