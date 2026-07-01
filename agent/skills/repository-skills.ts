@@ -1,4 +1,4 @@
-import { defineDynamic, defineSkill, DynamicResolveContext, type SkillDefinition } from "eve/skills";
+import { defineDynamic, defineSkill, type SkillDefinition } from "eve/skills";
 
 import { getSkills } from "../lib/storage/skills-repository.js";
 
