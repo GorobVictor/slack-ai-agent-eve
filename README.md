@@ -11,8 +11,9 @@ The most important product behavior is:
   the eve channel.
 - Slack messages are stored in Postgres for asynchronous analysis.
 - Scheduled jobs classify Slack messages and may turn durable user feedback into
-  reviewable DB-backed skills.
-- Admin-gated tools approve, deactivate, list, or soft-delete those skills.
+  reviewable DB-backed skills or active DB-backed schedules.
+- Admin-gated tools approve, deactivate, list, or soft-delete DB-backed skills,
+  and schedule-owner tools list or delete DB-backed schedules.
 - Active DB-backed skills are loaded into eve dynamically on each session and
   turn, so the agent can improve without changing source files.
 
@@ -33,18 +34,19 @@ npm run dev
 ```
 
 Fill `DATABASE_URL` in `.env.local` before running migrations or any
-storage-backed runtime code. If you want to use skill review and lifecycle
-tools, also set `SKILL_ADMIN_USER_IDS` to a comma-separated list of Slack user
-ids allowed to manage DB-backed skills.
+storage-backed runtime code. If you want to use skill review, skill lifecycle,
+or cross-owner schedule management tools, also set `SKILL_ADMIN_USER_IDS` to a
+comma-separated list of Slack user ids allowed to manage DB-backed skills and
+schedules.
 
 ## Environment Variables
 
 | Variable | Required | Used by | Purpose |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Yes for storage-backed features | `agent/lib/storage/db.ts`, `drizzle.config.ts` | Neon Postgres connection string for Drizzle, cache, runtime skills, and Slack analytics. |
-| `SKILL_ADMIN_USER_IDS` | Yes for skill admin tools | `agent/lib/auth/skill-admin.ts` | Comma-separated Slack user ids that may approve, deactivate, delete, or inspect DB-backed skills. |
+| `SKILL_ADMIN_USER_IDS` | Yes for skill admin and schedule admin behavior | `agent/lib/auth/skill-admin.ts`, `agent/lib/auth/schedule-access.ts` | Comma-separated Slack user ids that may approve, deactivate, delete, or inspect DB-backed skills, and list or delete schedules across owners. |
 | `SLACK_MESSAGE_ANALYSIS_MODEL` | Optional | `agent/lib/analytics/slack-message-intent.ts` | Overrides the model used to classify Slack messages. Defaults to `google/gemma-4-31b-it`. |
-| `SLACK_ARTIFACT_GENERATION_MODEL` | Optional | `agent/lib/analytics/slack-artifact-generation.ts` | Overrides the model used to generate skill review candidates. Falls back to `SLACK_MESSAGE_ANALYSIS_MODEL`, then `google/gemma-4-31b-it`. |
+| `SLACK_ARTIFACT_GENERATION_MODEL` | Optional | `agent/lib/analytics/slack-artifact-generation.ts` | Overrides the model used to generate skill and schedule artifacts. Falls back to `SLACK_MESSAGE_ANALYSIS_MODEL`, then `google/gemma-4-31b-it`. |
 
 Slack bot credentials are not stored in `.env.local`. They are resolved through
 `@vercel/connect` by `connectSlackCredentials("slack/eve")` in
@@ -82,6 +84,8 @@ flowchart LR
   Tools --> SkillsRepo
   SkillsRepo --> Cache[(cache_entries)]
   SkillsRepo --> Skills[(skills)]
+  Tools --> SchedulesRepo[agent/lib/storage/schedules-repository.ts]
+  SchedulesRepo --> Schedules[(schedules)]
 
   SlackChannel --> AnalyticsRepo[agent/lib/storage/slack-message-analytics-repository.ts]
   AnalyticsRepo --> SlackAnalytics[(slack_message_analytics)]
@@ -93,6 +97,7 @@ flowchart LR
   ScheduleB[slack-artifact-review schedule] --> ArtifactProcessor[slack-artifact-generation-processor.ts]
   ArtifactProcessor --> ArtifactModel[slack-artifact-generation.ts]
   ArtifactProcessor --> Skills
+  ArtifactProcessor --> Schedules
 ```
 
 ## Request Flow
@@ -134,7 +139,7 @@ the runtime as extra context.
 ## Learning and Skill Review Flow
 
 The repository has a feedback loop that turns Slack messages into reviewable
-runtime skills.
+runtime skills and owner-scoped runtime schedules.
 
 ```mermaid
 flowchart TD
@@ -142,15 +147,16 @@ flowchart TD
   Pending --> ClaimAnalysis[Schedule claims rows with FOR UPDATE SKIP LOCKED]
   ClaimAnalysis --> Processing[analysis_status: processing]
   Processing --> Intent{Intent}
-  Intent -->|skill.create or skill.improve| Completed[analysis_status: completed]
+  Intent -->|skill.create, skill.improve, schedule.create, or schedule.improve| Completed[analysis_status: completed]
   Intent -->|none| Completed
   Processing -->|error| AnalysisFailed[analysis_status: failed]
 
   Completed --> ArtifactPending{artifact_generation_status: pending}
-  ArtifactPending -->|intent is skill.create or skill.improve| ClaimGeneration[Artifact schedule claims rows]
+  ArtifactPending -->|intent is create/improve for skill or schedule| ClaimGeneration[Artifact schedule claims rows]
   ArtifactPending -->|intent is none| NoArtifact[No artifact generated]
-  ClaimGeneration --> Generate[Generate DB skill candidate]
+  ClaimGeneration --> Generate[Generate DB artifact candidate]
   Generate -->|candidate| ReviewSkill[skills.review_status: review]
+  Generate -->|candidate| ActiveSchedule[schedules.enabled: true, active: true]
   Generate -->|skip| Skipped[artifact_generation_status: skipped]
   Generate -->|error| GenerationFailed[artifact_generation_status: failed]
 
@@ -167,8 +173,10 @@ The process is intentionally asynchronous:
    pending Slack analytics rows in batches of 10.
 3. `agent/schedules/slack-artifact-review.ts` runs every 5 minutes and processes
    completed actionable analytics rows in batches of 5.
-4. Generated skills are not activated immediately. They are stored as disabled,
-   inactive review candidates until an admin approves them.
+4. Generated skill candidates are not activated immediately. They are stored as
+   disabled, inactive review candidates until an admin approves them.
+5. Generated schedules are created or improved directly as active
+   owner-scoped schedule rows.
 
 ## Skill Lifecycle
 
@@ -220,6 +228,22 @@ erDiagram
     timestamp updated_at
   }
 
+  schedules {
+    uuid id PK
+    text slug
+    integer version
+    text title
+    text cron
+    text markdown
+    boolean enabled
+    boolean active
+    text owner_user_id
+    jsonb metadata
+    uuid supersedes_id FK
+    timestamp created_at
+    timestamp updated_at
+  }
+
   cache_entries {
     text key PK
     jsonb value
@@ -249,6 +273,7 @@ erDiagram
   }
 
   skills ||--o| skills : supersedes
+  schedules ||--o| schedules : supersedes
 ```
 
 ### `skills`
@@ -264,6 +289,17 @@ Stores DB-backed runtime skills and review candidates.
 - `metadata` stores lifecycle, Slack source, analysis, and generation metadata.
 - `supersedesId` links a newer version to the version it replaced.
 
+### `schedules`
+
+Stores DB-backed Eve schedules generated from Slack analytics.
+
+- `ownerUserId` scopes schedule ownership to a Slack user.
+- `slug` and `version` identify schedule revisions for one owner.
+- `cron` stores a five-field schedule expression.
+- `markdown` stores the recurring prompt passed to Eve.
+- `enabled` and `active` both need to be true for runtime eligibility.
+- `supersedesId` links an improved version to the replaced schedule.
+
 ### `cache_entries`
 
 Generic Postgres-backed cache table. Runtime skills use the `eve:skills:v1` key
@@ -274,7 +310,8 @@ with a 5 minute TTL.
 Stores Slack messages and asynchronous processing state.
 
 - `analysisStatus`: `pending`, `processing`, `completed`, or `failed`.
-- `intent`: currently `skill.create`, `skill.improve`, or `none`.
+- `intent`: `skill.create`, `skill.improve`, `schedule.create`,
+  `schedule.improve`, or `none`.
 - `artifactGenerationStatus`: `pending`, `processing`, `review`, `skipped`, or
   `failed`.
 - `metadata`: structured details from Slack ingress, model classification,
@@ -300,17 +337,21 @@ Stores Slack messages and asynchronous processing state.
 │   │   │   ├── slack-message-analysis-processor.ts
 │   │   │   └── slack-message-intent.ts
 │   │   ├── auth/
+│   │   │   ├── schedule-access.ts
 │   │   │   └── skill-admin.ts
 │   │   ├── prompts/
 │   │   │   ├── instructions-prompt.ts
 │   │   │   ├── slack-artifact-generation-prompt.ts
 │   │   │   └── slack-message-intent-prompt.ts
+│   │   ├── schedules/
+│   │   │   └── tool-output.ts
 │   │   ├── skills/
 │   │   │   └── tool-output.ts
 │   │   └── storage/
 │   │       ├── cache.ts
 │   │       ├── db.ts
 │   │       ├── schema.ts
+│   │       ├── schedules-repository.ts
 │   │       ├── skills-repository.ts
 │   │       └── slack-message-analytics-repository.ts
 │   ├── schedules/
@@ -323,7 +364,9 @@ Stores Slack messages and asynchronous processing state.
 │       ├── approve_skill_review_candidate.ts
 │       ├── deactivate_active_skill.ts
 │       ├── delete_skill.ts
+│       ├── delete_schedule.ts
 │       ├── get_active_skills.ts
+│       ├── get_active_schedules.ts
 │       ├── get_current_datetime.ts
 │       ├── get_skill_review_candidates.ts
 │       └── get_weather.ts
@@ -374,7 +417,11 @@ Stores Slack messages and asynchronous processing state.
   active.
 - `deactivate_active_skill.ts` disables an active DB-backed skill by id or slug.
 - `delete_skill.ts` soft-deletes a DB-backed skill.
+- `delete_schedule.ts` soft-deletes a DB-backed schedule owned by the caller or
+  by any owner when the caller is an admin.
 - `get_active_skills.ts` lists active DB-backed skills.
+- `get_active_schedules.ts` lists active DB-backed schedules for the caller,
+  with optional admin-wide listing.
 - `get_skill_review_candidates.ts` lists review candidates.
 - `get_current_datetime.ts` returns the current localized datetime.
 - `get_weather.ts` resolves a city through Open-Meteo geocoding and returns the
@@ -383,6 +430,10 @@ Stores Slack messages and asynchronous processing state.
 Skill lifecycle tools are guarded by `requireSkillAdmin`, which reads the Slack
 user id from `ctx.session.auth.current.attributes["user_id"]` and checks it
 against `SKILL_ADMIN_USER_IDS`.
+
+Schedule tools are guarded by `requireScheduleAccess`, which reads the current
+Slack user id and marks whether the user is an admin from
+`SKILL_ADMIN_USER_IDS`.
 
 ### Schedules
 
@@ -421,6 +472,7 @@ Existing migrations:
 - `drizzle/0002_late_dark_phoenix.sql`: creates `slack_message_analytics`.
 - `drizzle/0003_illegal_obadiah_stane.sql`: adds review/artifact-generation
   columns and indexes.
+- `drizzle/0004_same_vance_astro.sql`: adds the `schedules` table and indexes.
 
 ## Development Notes
 

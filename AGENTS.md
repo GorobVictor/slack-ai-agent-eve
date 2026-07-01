@@ -184,6 +184,22 @@ erDiagram
     timestamp updated_at
   }
 
+  schedules {
+    uuid id PK
+    text slug
+    integer version
+    text title
+    text cron
+    text markdown
+    boolean enabled
+    boolean active
+    text owner_user_id
+    jsonb metadata
+    uuid supersedes_id FK
+    timestamp created_at
+    timestamp updated_at
+  }
+
   cache_entries {
     text key PK
     jsonb value
@@ -213,6 +229,7 @@ erDiagram
   }
 
   skills ||--o| skills : supersedes
+  schedules ||--o| schedules : supersedes
 ```
 
 ### `skills`
@@ -226,6 +243,19 @@ Stores DB-backed eve skills and review candidates.
 - New approved versions deactivate previous active versions.
 - `metadata.lifecycle` records approval, deactivation, and deletion details.
 
+### `schedules`
+
+Stores DB-backed Eve schedules generated from Slack analytics.
+
+- Runtime dispatcher execution is not implemented yet; rows are stored for
+  lifecycle management and future dynamic dispatch.
+- Runtime eligibility requires `enabled = true` and `active = true`.
+- Versions are scoped by `(ownerUserId, slug)`.
+- Only one active row per `(ownerUserId, slug)` is allowed.
+- `schedule.improve` creates a new active version and deactivates the previous
+  active version for the same owner and slug.
+- `metadata.lifecycle` records deletion details.
+
 ### `cache_entries`
 
 Stores reusable JSON cache entries. Active DB skills use cache key
@@ -236,7 +266,8 @@ Stores reusable JSON cache entries. Active DB skills use cache key
 Stores incoming Slack messages and async processing status.
 
 - `analysisStatus`: `pending`, `processing`, `completed`, or `failed`.
-- `intent`: `skill.create`, `skill.improve`, or `none`.
+- `intent`: `skill.create`, `skill.improve`, `schedule.create`,
+  `schedule.improve`, or `none`.
 - `artifactGenerationStatus`: `pending`, `processing`, `review`, `skipped`, or
   `failed`.
 - `metadata` stores Slack source information, prompt hashes, model usage,
@@ -259,6 +290,18 @@ Owns DB-backed skill reads and lifecycle operations.
 - `softDeleteSkill()` marks a skill as deleted and inactive.
 - Mutations call `invalidateSkillsCache()`.
 
+### `agent/lib/storage/schedules-repository.ts`
+
+Owns DB-backed schedule reads and lifecycle operations.
+
+- `createSchedule()` inserts a new active schedule for a Slack owner.
+- `upsertScheduleVersion()` creates a new active version for a schedule and
+  deactivates the previous active version for the same owner and slug.
+- `getActiveSchedules()` lists active schedules, optionally filtered by owner or
+  slug.
+- `softDeleteSchedule()` disables a schedule when the requester is the owner or
+  an admin.
+
 ### `agent/lib/storage/slack-message-analytics-repository.ts`
 
 Owns Slack analytics persistence and job claiming.
@@ -270,7 +313,7 @@ Owns Slack analytics persistence and job claiming.
 - `completeSlackMessageAnalysis()` stores the model-classified intent.
 - `failSlackMessageAnalysis()` records a bounded error message.
 - `claimPendingSlackArtifactGenerations()` claims completed actionable rows for
-  `skill.create` and `skill.improve`.
+  `skill.create`, `skill.improve`, `schedule.create`, and `schedule.improve`.
 - `completeSlackArtifactGeneration()` stores `review` or `skipped`.
 - `failSlackArtifactGeneration()` records generation failures.
 
@@ -287,25 +330,28 @@ sequenceDiagram
   participant ArtifactSchedule as slack-artifact-review schedule
   participant Generator as slack-artifact-generation.ts
   participant Skills as skills
+  participant Schedules as schedules
 
   Slack->>DB: recordSlackUserMessage(status=pending)
   AnalysisSchedule->>DB: claim pending rows
   AnalysisSchedule->>Intent: classify message
   Intent->>DB: complete with intent and metadata
-  ArtifactSchedule->>DB: claim completed skill.create/skill.improve rows
+  ArtifactSchedule->>DB: claim completed actionable rows
   ArtifactSchedule->>Generator: generate candidate or skip
   Generator->>Skills: create review candidate
+  Generator->>Schedules: create or improve active schedule
   Generator->>DB: mark artifact_generation_status=review
 ```
 
 The intent analyzer uses `SLACK_MESSAGE_INTENT_PROMPT` and includes a compact
-inventory of active DB skills so the model can decide whether the message asks to
-create or improve a skill.
+inventory of active DB skills and the Slack user's active schedules so the model
+can decide whether the message asks to create or improve an artifact.
 
 The artifact generator uses `SLACK_ARTIFACT_GENERATION_PROMPT`, the analytics
-row, and the same active skill inventory. It normalizes model output, enforces a
-lowercase kebab-case slug, and skips rows that do not produce a complete skill
-candidate.
+row, and the same artifact inventory. It normalizes model output, enforces a
+lowercase kebab-case slug, and skips rows that do not produce a complete skill or
+schedule candidate. Schedule candidates require both a five-field `cron` and a
+`markdown` prompt.
 
 ## Dynamic Skills
 
@@ -340,6 +386,16 @@ Admin-gated tools:
 - `get_active_skills`: lists active DB-backed skills.
 - `deactivate_active_skill`: deactivates by `id` or `slug`.
 - `delete_skill`: soft-deletes by `id`.
+
+Schedule access uses `requireScheduleAccess(ctx)` from
+`agent/lib/auth/schedule-access.ts`.
+
+Schedule tools:
+
+- `get_active_schedules`: lists schedules owned by the Slack user; admins can
+  request all owners.
+- `delete_schedule`: soft-deletes a schedule when the Slack user owns it or is
+  listed in `SKILL_ADMIN_USER_IDS`.
 
 General utility tools:
 
