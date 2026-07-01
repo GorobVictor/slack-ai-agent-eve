@@ -12,8 +12,8 @@ overview.
 ## First Principles
 
 - Preserve eve's filesystem-first architecture. Put authored eve modules in the
-  supported directories under `agent/`: `channels/`, `tools/`, `schedules/`,
-  `skills/`, and shared code under `lib/`.
+  supported directories under `agent/`: `channels/`, `connections/`, `tools/`,
+  `schedules/`, `skills/`, and shared code under `lib/`.
 - Keep shared utilities, storage code, analytics code, prompt constants, and auth
   helpers under `agent/lib/`.
 - Do not add unsupported agent-root directories such as `agent/prompts/`.
@@ -43,6 +43,7 @@ flowchart LR
   Runtime --> DynamicSkills[agent/skills/repository-skills.ts]
   Runtime --> Tools[agent/tools/*.ts]
   Runtime --> Schedules[agent/schedules/*.ts]
+  Runtime --> Connections[agent/connections/*.ts]
 
   DynamicSkills --> SkillsRepo[agent/lib/storage/skills-repository.ts]
   Tools --> SkillsRepo
@@ -64,6 +65,8 @@ agent/
 |-- channels/
 |   |-- eve.ts
 |   `-- slack.ts
+|-- connections/
+|   `-- github.ts
 |-- lib/
 |   |-- analytics/
 |   |   |-- artifact-inventory.ts

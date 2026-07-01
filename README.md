@@ -76,6 +76,7 @@ flowchart LR
   EveRuntime --> StaticSkill[agent/skills/clarifying-questions.md]
   EveRuntime --> DynamicSkills[agent/skills/repository-skills.ts]
   EveRuntime --> Tools[agent/tools/*]
+  EveRuntime --> Connections[agent/connections/*]
 
   DynamicSkills --> SkillsRepo[agent/lib/storage/skills-repository.ts]
   Tools --> SkillsRepo
@@ -289,6 +290,8 @@ Stores Slack messages and asynchronous processing state.
 │   ├── channels/
 │   │   ├── eve.ts
 │   │   └── slack.ts
+│   ├── connections/
+│   │   └── github.ts
 │   ├── lib/
 │   │   ├── analytics/
 │   │   │   ├── artifact-inventory.ts
@@ -351,6 +354,11 @@ Stores Slack messages and asynchronous processing state.
 - `agent/channels/slack.ts` configures the Slack channel, resolves credentials
   through Vercel Connect, records Slack messages for analytics, and adds recent
   thread context.
+
+### Connections
+
+- `agent/connections/github.ts` configures the GitHub MCP client connection
+  through Vercel Connect.
 
 ### Skills
 
