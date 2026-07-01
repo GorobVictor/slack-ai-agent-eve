@@ -1,6 +1,6 @@
 import type { ToolContext } from "eve/tools";
 
-const SKILL_ADMIN_USER_IDS_ENV = "SKILL_ADMIN_USER_IDS";
+import { extractSlackUserId, getAllowedSkillAdminUserIds } from "./skill-admin.js";
 
 export type ScheduleAccessContext = {
   userId: string;
@@ -15,19 +15,6 @@ export function requireScheduleAccess(ctx: ToolContext): ScheduleAccessContext {
 
   return {
     userId,
-    isAdmin: getAllowedAdminUserIds().has(userId),
+    isAdmin: getAllowedSkillAdminUserIds().has(userId),
   };
-}
-
-function getAllowedAdminUserIds() {
-  return new Set(
-    (process.env[SKILL_ADMIN_USER_IDS_ENV] ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean)
-  );
-}
-
-function extractSlackUserId(ctx: ToolContext) {
-  return ctx.session.auth.current?.attributes["user_id"] as string | undefined;
 }

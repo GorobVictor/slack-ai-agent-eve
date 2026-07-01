@@ -20,7 +20,7 @@ export function requireSkillAdmin(ctx: ToolContext): SkillAdminContext {
   return { userId };
 }
 
-function getAllowedSkillAdminUserIds() {
+export function getAllowedSkillAdminUserIds() {
   return new Set(
     (process.env[SKILL_ADMIN_USER_IDS_ENV] ?? "")
       .split(",")
@@ -29,6 +29,6 @@ function getAllowedSkillAdminUserIds() {
   );
 }
 
-function extractSlackUserId(ctx: ToolContext) {
+export function extractSlackUserId(ctx: ToolContext) {
   return ctx.session.auth.current?.attributes["user_id"] as string | undefined;
 }

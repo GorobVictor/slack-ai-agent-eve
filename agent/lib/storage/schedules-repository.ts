@@ -65,18 +65,14 @@ export async function createSchedule(input: CreateScheduleInput) {
 
   const [created] = await db
     .insert(schedules)
-    .values({
-      slug: input.slug,
-      version: await getNextScheduleVersion(input.ownerUserId, input.slug),
-      title: input.title,
-      cron: input.cron,
-      markdown: input.markdown,
-      enabled: true,
-      active: true,
-      ownerUserId: input.ownerUserId,
-      metadata: input.metadata ?? {},
-      updatedAt: now,
-    })
+    .values(
+      buildScheduleInsertValues({
+        input,
+        version: await getNextScheduleVersion(input.ownerUserId, input.slug),
+        metadata: input.metadata ?? {},
+        updatedAt: now,
+      })
+    )
     .returning();
 
   return serializeSchedule(created);
@@ -103,18 +99,14 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
   if (!current) {
     const [created] = await db
       .insert(schedules)
-      .values({
-        slug: input.slug,
-        version,
-        title: input.title,
-        cron: input.cron,
-        markdown: input.markdown,
-        enabled: true,
-        active: true,
-        ownerUserId: input.ownerUserId,
-        metadata: input.metadata ?? {},
-        updatedAt: now,
-      })
+      .values(
+        buildScheduleInsertValues({
+          input,
+          version,
+          metadata: input.metadata ?? {},
+          updatedAt: now,
+        })
+      )
       .returning();
 
     return serializeSchedule(created);
@@ -128,19 +120,15 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
 
     const [nextVersion] = await tx
       .insert(schedules)
-      .values({
-        slug: input.slug,
-        version,
-        title: input.title,
-        cron: input.cron,
-        markdown: input.markdown,
-        enabled: true,
-        active: true,
-        ownerUserId: input.ownerUserId,
-        metadata: input.metadata ?? current.metadata,
-        supersedesId: current.id,
-        updatedAt: now,
-      })
+      .values(
+        buildScheduleInsertValues({
+          input,
+          version,
+          metadata: input.metadata ?? current.metadata,
+          supersedesId: current.id,
+          updatedAt: now,
+        })
+      )
       .returning();
 
     return nextVersion;
@@ -232,6 +220,28 @@ function withLifecycleMetadata(
       ...(isRecord(metadata.lifecycle) ? metadata.lifecycle : {}),
       ...withoutUndefined(lifecycleUpdate),
     },
+  };
+}
+
+function buildScheduleInsertValues(input: {
+  input: CreateScheduleInput;
+  version: number;
+  metadata: StorageMetadata;
+  supersedesId?: string;
+  updatedAt: Date;
+}) {
+  return {
+    slug: input.input.slug,
+    version: input.version,
+    title: input.input.title,
+    cron: input.input.cron,
+    markdown: input.input.markdown,
+    enabled: true,
+    active: true,
+    ownerUserId: input.input.ownerUserId,
+    metadata: input.metadata,
+    supersedesId: input.supersedesId,
+    updatedAt: input.updatedAt,
   };
 }
 
