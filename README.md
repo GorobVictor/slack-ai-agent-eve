@@ -85,5 +85,6 @@ Storage migrations live under `drizzle/`, and approved feature plans live under
 - Completed skill signals are processed by the `slack-artifact-review` schedule into disabled review candidates with Slack source metadata.
 - Runtime skills are stored in Neon Postgres and read through a Postgres-backed cache-aside repository.
 - Editable prompt constants live under `agent/lib/prompts/` as multiline template literals.
+- VS Code launch profiles in `.vscode/launch.json` run `eve dev` and `eve start` with source maps enabled.
 - The `/gen-commits` workflow runs a follow-up `/clean-code` pass through `.cursor/hooks.json`.
 - Compiled artifacts and local runtime state are written under `.eve/` and are gitignored.
