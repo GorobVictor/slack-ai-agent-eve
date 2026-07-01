@@ -1,4 +1,3 @@
-ALTER TABLE "rules" ADD COLUMN "review_status" text DEFAULT 'approved' NOT NULL;--> statement-breakpoint
 ALTER TABLE "skills" ADD COLUMN "review_status" text DEFAULT 'approved' NOT NULL;--> statement-breakpoint
 ALTER TABLE "slack_message_analytics" ADD COLUMN "artifact_generation_status" text DEFAULT 'pending' NOT NULL;--> statement-breakpoint
 ALTER TABLE "slack_message_analytics" ADD COLUMN "artifact_generation_error" text;--> statement-breakpoint
