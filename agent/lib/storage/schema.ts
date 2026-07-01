@@ -15,7 +15,7 @@ import {
 export type StorageMetadata = Record<string, unknown>;
 export type CacheValue = unknown;
 export type SlackMessageAnalysisStatus = "pending" | "processing" | "completed" | "failed";
-export type ReviewStatus = "approved" | "review";
+export type ReviewStatus = "approved" | "review" | "deleted";
 export type SlackArtifactGenerationStatus =
   | "pending"
   | "processing"
