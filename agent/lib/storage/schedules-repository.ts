@@ -98,7 +98,7 @@ export async function createSchedule(input: CreateScheduleInput) {
   }
 
   const created = await insertScheduleVersion({
-    input,
+    schedule: input,
     version: await getNextScheduleVersion(input.ownerUserId, input.slug),
     metadata: input.metadata ?? {},
     nextRunAt,
@@ -118,7 +118,7 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
 
   if (!current) {
     const created = await insertScheduleVersion({
-      input,
+      schedule: input,
       version,
       metadata: input.metadata ?? {},
       nextRunAt,
@@ -134,7 +134,7 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
     .where(eq(schedules.id, current.id));
 
   const created = await insertScheduleVersion({
-    input,
+    schedule: input,
     version,
     metadata: input.metadata ?? current.metadata,
     supersedesId: current.id,
@@ -308,7 +308,7 @@ async function getActiveSchedule(ownerUserId: string, slug: string) {
 }
 
 async function insertScheduleVersion(input: {
-  input: CreateScheduleInput;
+  schedule: CreateScheduleInput;
   version: number;
   metadata: StorageMetadata;
   supersedesId?: string;
@@ -396,7 +396,7 @@ function withLifecycleMetadata(
 }
 
 function buildScheduleInsertValues(input: {
-  input: CreateScheduleInput;
+  schedule: CreateScheduleInput;
   version: number;
   metadata: StorageMetadata;
   supersedesId?: string;
@@ -404,14 +404,14 @@ function buildScheduleInsertValues(input: {
   updatedAt: Date;
 }) {
   return {
-    slug: input.input.slug,
+    slug: input.schedule.slug,
     version: input.version,
-    title: input.input.title,
-    cron: input.input.cron,
-    markdown: input.input.markdown,
+    title: input.schedule.title,
+    cron: input.schedule.cron,
+    markdown: input.schedule.markdown,
     enabled: true,
     active: true,
-    ownerUserId: input.input.ownerUserId,
+    ownerUserId: input.schedule.ownerUserId,
     metadata: input.metadata,
     supersedesId: input.supersedesId,
     nextRunAt: input.nextRunAt,
