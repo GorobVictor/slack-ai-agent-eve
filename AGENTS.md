@@ -344,6 +344,7 @@ sequenceDiagram
   Generator->>SlackAPI: fetch thread history best-effort
   Generator->>Skills: create review candidate
   Generator->>Schedules: create or improve active schedule
+  Generator->>SlackAPI: post success notification best-effort
   Generator->>DB: mark artifact_generation_status=review
 ```
 
@@ -359,7 +360,10 @@ row, the same artifact inventory, and best-effort Slack thread history from
 lowercase kebab-case slug, and skips rows that do not produce a complete skill or
 schedule candidate. Schedule candidates require both a five-field `cron` and a
 `markdown` prompt. Slack history fetch failures are stored as generation
-metadata warnings and must not block artifact generation.
+metadata warnings and must not block artifact generation. After a successful DB
+write, the processor posts a best-effort success notification to the originating
+Slack thread and stores notification status, message timestamp, or error in
+artifact generation metadata.
 
 ## Dynamic Skills
 

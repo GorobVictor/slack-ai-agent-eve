@@ -97,6 +97,7 @@ flowchart LR
   ScheduleB[slack-artifact-review schedule] --> ArtifactProcessor[slack-artifact-generation-processor.ts]
   ArtifactProcessor --> ArtifactModel[slack-artifact-generation.ts]
   ArtifactModel --> SlackAPI[Slack Web API]
+  ArtifactProcessor --> SlackAPI
   ArtifactProcessor --> Skills
   ArtifactProcessor --> Schedules
 ```
@@ -184,6 +185,10 @@ The process is intentionally asynchronous:
 During artifact generation, the generator can also fetch Slack thread history
 best-effort from the Slack Web API so candidates can use richer context than
 the single triggering message.
+
+After a successful artifact write, the processor also posts a best-effort
+success notification back to the originating Slack thread. Notification failures
+are recorded in metadata and do not fail artifact generation.
 
 ## Skill Lifecycle
 
