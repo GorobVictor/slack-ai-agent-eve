@@ -51,6 +51,12 @@ export type CompleteSlackArtifactGenerationInput = {
   metadata?: StorageMetadata;
 };
 
+export type FailSlackMessageAnalysisInput = {
+  id: string;
+  error: unknown;
+  metadata?: StorageMetadata;
+};
+
 const MAX_ERROR_LENGTH = 2_000;
 
 type RawSlackMessageAnalysisRow = Omit<
@@ -234,16 +240,17 @@ export async function failSlackArtifactGeneration(id: string, error: unknown) {
   return row ? serializeSlackMessageAnalysis(row) : null;
 }
 
-export async function failSlackMessageAnalysis(id: string, error: unknown) {
+export async function failSlackMessageAnalysis(input: FailSlackMessageAnalysisInput) {
   const now = new Date();
   const [row] = await getDb()
     .update(slackMessageAnalytics)
     .set({
       analysisStatus: "failed",
-      analysisError: formatAnalysisError(error),
+      analysisError: formatAnalysisError(input.error),
+      metadata: sql`${slackMessageAnalytics.metadata} || ${input.metadata ?? {}}::jsonb`,
       updatedAt: now,
     })
-    .where(eq(slackMessageAnalytics.id, id))
+    .where(eq(slackMessageAnalytics.id, input.id))
     .returning();
 
   return row ? serializeSlackMessageAnalysis(row) : null;
