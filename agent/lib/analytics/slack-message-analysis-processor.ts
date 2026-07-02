@@ -8,6 +8,8 @@ import {
 } from "#lib/storage/slack-message-analytics-repository.js";
 
 const DEFAULT_BATCH_SIZE = 10;
+const ANALYSIS_FAILURE_NOTIFICATION_MARKDOWN =
+  "I could not process this request for artifact generation. Please rephrase it or try again.";
 
 export async function processPendingSlackMessageAnalyses(batchSize = DEFAULT_BATCH_SIZE) {
   const messages = await claimPendingSlackMessageAnalyses(batchSize);
@@ -24,12 +26,11 @@ export async function processPendingSlackMessageAnalyses(batchSize = DEFAULT_BAT
       });
       completed += 1;
     } catch (error) {
-      const notificationMetadata = await notifySlackMessageAnalysisFailure(message);
       await failSlackMessageAnalysis({
         id: message.id,
         error,
         metadata: {
-          analysisFailureNotification: notificationMetadata,
+          analysisFailureNotification: await notifySlackMessageAnalysisFailure(message),
         },
       });
       failed += 1;
@@ -52,8 +53,7 @@ async function notifySlackMessageAnalysisFailure(message: StoredSlackMessageAnal
     const posted = await postSlackMessage({
       channelId: message.channelId,
       threadTs: message.threadTs,
-      markdown:
-        "I could not process this request for artifact generation. Please rephrase it or try again.",
+      markdown: ANALYSIS_FAILURE_NOTIFICATION_MARKDOWN,
     });
 
     return {

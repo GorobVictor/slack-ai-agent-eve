@@ -93,7 +93,7 @@ export async function recordSlackUserMessage(input: RecordSlackUserMessageInput)
         threadTs: input.threadTs,
         userId: input.userId,
         userMessage: input.userMessage,
-        metadata: sql`${slackMessageAnalytics.metadata} || ${input.metadata ?? {}}::jsonb`,
+        metadata: mergeMetadata(input.metadata),
         updatedAt: now,
       },
     })
@@ -153,7 +153,7 @@ export async function completeSlackMessageAnalysis(input: CompleteSlackMessageAn
       analysisStatus: "completed",
       analysisError: null,
       analyzedAt: now,
-      metadata: sql`${slackMessageAnalytics.metadata} || ${input.metadata ?? {}}::jsonb`,
+      metadata: mergeMetadata(input.metadata),
       updatedAt: now,
     })
     .where(eq(slackMessageAnalytics.id, input.id))
@@ -216,7 +216,7 @@ export async function completeSlackArtifactGeneration(
       artifactGenerationStatus: input.status,
       artifactGenerationError: null,
       artifactGeneratedAt: now,
-      metadata: sql`${slackMessageAnalytics.metadata} || ${input.metadata ?? {}}::jsonb`,
+      metadata: mergeMetadata(input.metadata),
       updatedAt: now,
     })
     .where(eq(slackMessageAnalytics.id, input.id))
@@ -247,7 +247,7 @@ export async function failSlackMessageAnalysis(input: FailSlackMessageAnalysisIn
     .set({
       analysisStatus: "failed",
       analysisError: formatAnalysisError(input.error),
-      metadata: sql`${slackMessageAnalytics.metadata} || ${input.metadata ?? {}}::jsonb`,
+      metadata: mergeMetadata(input.metadata),
       updatedAt: now,
     })
     .where(eq(slackMessageAnalytics.id, input.id))
@@ -293,4 +293,8 @@ function serializeRawSlackMessageAnalysis(row: RawSlackMessageAnalysisRow): Stor
 function formatAnalysisError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return message.slice(0, MAX_ERROR_LENGTH);
+}
+
+function mergeMetadata(metadata?: StorageMetadata) {
+  return sql`${slackMessageAnalytics.metadata} || ${metadata ?? {}}::jsonb`;
 }
