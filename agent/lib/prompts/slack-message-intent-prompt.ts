@@ -17,6 +17,12 @@ Use only the provided "Existing active and enabled DB artifacts" as existing art
 
 Prefer \`*.improve\` when the message clearly maps to one of the provided existing DB artifacts. Use \`*.create\` only when the message has durable learning value and no provided DB artifact appears to cover it.
 
+Use Slack thread history as supporting context for disambiguation, especially for \`*.improve\` requests. If the thread history contains newer explicit user clarification, account for it when classifying the trigger message.
+
+Use the provided active DB skills and user-owned active schedules inventory to decide whether a request is \`*.create\` or \`*.improve\`. Do not classify an improvement unless the target artifact appears in that inventory.
+
+Do not classify short assistant acknowledgement messages, such as "request received" or "processing", as artifact requests by themselves.
+
 Classify short reusable behavior instructions as skills when they can be expressed as loadable markdown guidance with a focused description. Examples:
 
 - "When I ask you to send code, send only the code" => \`skill.create\`

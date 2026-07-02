@@ -10,9 +10,12 @@ import {
   SLACK_MESSAGE_INTENT_PROMPT,
   SLACK_MESSAGE_INTENT_PROMPT_PATH,
 } from "#lib/prompts/slack-message-intent-prompt.js";
+import { loadSlackThreadHistory } from "#lib/slack/thread-history.js";
 
 const ANALYSIS_MODEL = process.env.SLACK_MESSAGE_ANALYSIS_MODEL ?? "google/gemma-4-31b-it";
 const PROMPT_HASH = createHash("sha256").update(SLACK_MESSAGE_INTENT_PROMPT).digest("hex");
+const INTENT_THREAD_HISTORY_LIMIT = 25;
+const INTENT_THREAD_HISTORY_MAX_CHARS = 6_000;
 
 const intentOptions = ["skill.create", "skill.improve", "schedule.create", "schedule.improve", "none"] as const;
 const targetOptions = ["skill", "schedule", "none"] as const;
@@ -58,6 +61,13 @@ export async function analyzeSlackMessageIntent(
   const { inventory, warnings } = await loadArtifactInventory({
     scheduleOwnerUserId: message.userId,
   });
+  const threadHistory = await loadSlackThreadHistory({
+    channelId: message.channelId,
+    threadTs: message.threadTs,
+    messageTs: message.messageTs,
+    limit: INTENT_THREAD_HISTORY_LIMIT,
+    maxTranscriptChars: INTENT_THREAD_HISTORY_MAX_CHARS,
+  });
   const result = await generateText({
     model: ANALYSIS_MODEL,
     output: Output.object({
@@ -81,6 +91,9 @@ export async function analyzeSlackMessageIntent(
         null,
         2
       ),
+      "",
+      "Slack thread history:",
+      threadHistory.transcript || "No Slack thread history was available.",
       "",
       "Existing active and enabled DB artifacts:",
       JSON.stringify(inventory, null, 2),
@@ -111,6 +124,12 @@ export async function analyzeSlackMessageIntent(
           skillCount: inventory.skills.length,
           scheduleCount: inventory.schedules.length,
           warnings,
+        },
+        slackThreadHistory: {
+          messageCount: threadHistory.messageCount,
+          includedMessageCount: threadHistory.messages.length,
+          truncated: threadHistory.truncated,
+          warnings: threadHistory.warnings,
         },
         prompt: {
           path: SLACK_MESSAGE_INTENT_PROMPT_PATH,
