@@ -89,38 +89,21 @@ type RawScheduleRow = Omit<
 };
 
 export async function createSchedule(input: CreateScheduleInput) {
-  const db = getDb();
   const now = new Date();
   const nextRunAt = getNextScheduleRunAt(input.cron, now);
-
-  const [current] = await db
-    .select()
-    .from(schedules)
-    .where(
-      and(
-        eq(schedules.ownerUserId, input.ownerUserId),
-        eq(schedules.slug, input.slug),
-        eq(schedules.active, true)
-      )
-    )
-    .limit(1);
+  const current = await getActiveSchedule(input.ownerUserId, input.slug);
 
   if (current) {
     throw new Error(`Active schedule already exists: ${input.slug}`);
   }
 
-  const [created] = await db
-    .insert(schedules)
-    .values(
-      buildScheduleInsertValues({
-        input,
-        version: await getNextScheduleVersion(input.ownerUserId, input.slug),
-        metadata: input.metadata ?? {},
-        nextRunAt,
-        updatedAt: now,
-      })
-    )
-    .returning();
+  const created = await insertScheduleVersion({
+    input,
+    version: await getNextScheduleVersion(input.ownerUserId, input.slug),
+    metadata: input.metadata ?? {},
+    nextRunAt,
+    updatedAt: now,
+  });
 
   return serializeSchedule(created);
 }
@@ -129,34 +112,18 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
   const db = getDb();
   const now = new Date();
   const nextRunAt = getNextScheduleRunAt(input.cron, now);
-
-  const [current] = await db
-    .select()
-    .from(schedules)
-    .where(
-      and(
-        eq(schedules.ownerUserId, input.ownerUserId),
-        eq(schedules.slug, input.slug),
-        eq(schedules.active, true)
-      )
-    )
-    .limit(1);
+  const current = await getActiveSchedule(input.ownerUserId, input.slug);
 
   const version = await getNextScheduleVersion(input.ownerUserId, input.slug);
 
   if (!current) {
-    const [created] = await db
-      .insert(schedules)
-      .values(
-        buildScheduleInsertValues({
-          input,
-          version,
-          metadata: input.metadata ?? {},
-          nextRunAt,
-          updatedAt: now,
-        })
-      )
-      .returning();
+    const created = await insertScheduleVersion({
+      input,
+      version,
+      metadata: input.metadata ?? {},
+      nextRunAt,
+      updatedAt: now,
+    });
 
     return serializeSchedule(created);
   }
@@ -166,19 +133,14 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
     .set({ active: false, enabled: false, updatedAt: now })
     .where(eq(schedules.id, current.id));
 
-  const [created] = await db
-    .insert(schedules)
-    .values(
-      buildScheduleInsertValues({
-        input,
-        version,
-        metadata: input.metadata ?? current.metadata,
-        supersedesId: current.id,
-        nextRunAt,
-        updatedAt: now,
-      })
-    )
-    .returning();
+  const created = await insertScheduleVersion({
+    input,
+    version,
+    metadata: input.metadata ?? current.metadata,
+    supersedesId: current.id,
+    nextRunAt,
+    updatedAt: now,
+  });
 
   return serializeSchedule(created);
 }
@@ -333,6 +295,28 @@ async function getNextScheduleVersion(ownerUserId: string, slug: string) {
     .where(and(eq(schedules.ownerUserId, ownerUserId), eq(schedules.slug, slug)));
 
   return Number(row?.nextVersion ?? 1);
+}
+
+async function getActiveSchedule(ownerUserId: string, slug: string) {
+  const [schedule] = await getDb()
+    .select()
+    .from(schedules)
+    .where(and(eq(schedules.ownerUserId, ownerUserId), eq(schedules.slug, slug), eq(schedules.active, true)))
+    .limit(1);
+
+  return schedule;
+}
+
+async function insertScheduleVersion(input: {
+  input: CreateScheduleInput;
+  version: number;
+  metadata: StorageMetadata;
+  supersedesId?: string;
+  nextRunAt: Date;
+  updatedAt: Date;
+}) {
+  const [created] = await getDb().insert(schedules).values(buildScheduleInsertValues(input)).returning();
+  return created;
 }
 
 function serializeSchedule(schedule: Schedule): StoredSchedule {
