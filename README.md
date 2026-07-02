@@ -165,6 +165,8 @@ flowchart TD
   ReviewSkill --> AdminApproval[approve_skill_review_candidate tool]
   AdminApproval --> ActiveSkill[enabled: true, active: true, review_status: approved]
   ActiveSkill --> DynamicLoad[Loaded by repository-skills.ts]
+  ActiveSchedule --> DispatchSchedule[repository-schedules dispatcher]
+  DispatchSchedule --> SlackReceive[Proactive Slack receive]
 ```
 
 The process is intentionally asynchronous:
@@ -182,7 +184,8 @@ The process is intentionally asynchronous:
 4. Generated skill candidates are not activated immediately. They are stored as
    disabled, inactive review candidates until an admin approves them.
 5. Generated schedules are created or improved directly as active
-   owner-scoped schedule rows.
+   owner-scoped schedule rows. `agent/schedules/repository-schedules.ts` then
+   dispatches due schedule rows through proactive Slack `receive(...)` calls.
 
 During artifact generation, the generator can also fetch Slack thread history
 best-effort from the Slack Web API so candidates can use richer context than
@@ -257,6 +260,13 @@ erDiagram
     text owner_user_id
     jsonb metadata
     uuid supersedes_id FK
+    timestamp next_run_at
+    text lease_token
+    timestamp lease_expires_at
+    timestamp last_dispatched_at
+    timestamp last_dispatch_completed_at
+    text last_dispatch_error
+    integer dispatch_attempts
     timestamp created_at
     timestamp updated_at
   }
@@ -316,6 +326,11 @@ Stores DB-backed Eve schedules generated from Slack analytics.
 - `markdown` stores the recurring prompt passed to Eve.
 - `enabled` and `active` both need to be true for runtime eligibility.
 - `supersedesId` links an improved version to the replaced schedule.
+- `nextRunAt` stores the next due time for runtime dispatch.
+- `leaseToken` and `leaseExpiresAt` guard claimed rows so overlapping workers do
+  not dispatch the same schedule concurrently.
+- `lastDispatchedAt`, `lastDispatchCompletedAt`, `lastDispatchError`, and
+  `dispatchAttempts` store dispatcher status for observability.
 
 ### `cache_entries`
 
@@ -366,6 +381,8 @@ Stores Slack messages and asynchronous processing state.
 │   │   │   ├── context.ts
 │   │   │   └── thread-history.ts
 │   │   ├── schedules/
+│   │   │   ├── cron.ts
+│   │   │   ├── schedule-dispatcher.ts
 │   │   │   └── tool-output.ts
 │   │   ├── skills/
 │   │   │   └── tool-output.ts
@@ -377,6 +394,7 @@ Stores Slack messages and asynchronous processing state.
 │   │       ├── skills-repository.ts
 │   │       └── slack-message-analytics-repository.ts
 │   ├── schedules/
+│   │   ├── repository-schedules.ts
 │   │   ├── slack-artifact-review.ts
 │   │   └── slack-message-analytics.ts
 │   ├── skills/
@@ -467,6 +485,9 @@ Slack user id and marks whether the user is an admin from
 
 ### Schedules
 
+- `agent/schedules/repository-schedules.ts` runs every minute, claims due
+  DB-backed schedules with a short lease, and starts proactive Slack sessions
+  through `receive(slack, ...)`.
 - `agent/schedules/slack-message-analytics.ts` runs every minute and calls
   `processPendingSlackMessageAnalyses`.
 - `agent/schedules/slack-artifact-review.ts` runs every 5 minutes and calls
@@ -480,6 +501,8 @@ unsupported authored agent directory.
 - `agent/lib/storage/` owns Neon, Drizzle schema, repositories, and cache.
 - `agent/lib/analytics/` owns Slack intent analysis and artifact generation.
 - `agent/lib/slack/` owns Slack Web API helpers and Slack tool context helpers.
+- `agent/lib/schedules/` owns cron parsing, DB schedule dispatch, and schedule
+  tool output formatting.
 - `agent/lib/prompts/` owns editable prompt constants as multiline template
   literals.
 - `agent/lib/auth/` owns admin authorization helpers.
@@ -504,6 +527,8 @@ Existing migrations:
 - `drizzle/0003_illegal_obadiah_stane.sql`: adds review/artifact-generation
   columns and indexes.
 - `drizzle/0004_same_vance_astro.sql`: adds the `schedules` table and indexes.
+- `drizzle/0005_glorious_speed.sql`: adds schedule dispatch lease state and
+  runtime dispatch indexes.
 
 ## Development Notes
 
@@ -516,6 +541,9 @@ Existing migrations:
   do not block the agent response.
 - Analytics and artifact schedules use row claiming with `FOR UPDATE SKIP
   LOCKED`, which lets multiple workers avoid processing the same row.
+- DB-backed schedule dispatch uses a recoverable lease. Delivery is at least
+  once: if a worker crashes after Slack `receive(...)` succeeds but before
+  completion is recorded, the schedule can run again after the lease expires.
 - Active DB skills are cached for 5 minutes and cache is invalidated after
   approval, deactivation, direct upsert, or soft deletion.
 - Prompt constants belong in `agent/lib/prompts/{feature}-prompt.ts` and should

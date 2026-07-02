@@ -81,15 +81,21 @@ agent/
 |   |   |-- instructions-prompt.ts
 |   |   |-- slack-artifact-generation-prompt.ts
 |   |   `-- slack-message-intent-prompt.ts
+|   |-- schedules/
+|   |   |-- cron.ts
+|   |   |-- schedule-dispatcher.ts
+|   |   `-- tool-output.ts
 |   |-- skills/
 |   |   `-- tool-output.ts
 |   `-- storage/
 |       |-- cache.ts
 |       |-- db.ts
 |       |-- schema.ts
+|       |-- schedules-repository.ts
 |       |-- skills-repository.ts
 |       `-- slack-message-analytics-repository.ts
 |-- schedules/
+|   |-- repository-schedules.ts
 |   |-- slack-artifact-review.ts
 |   `-- slack-message-analytics.ts
 |-- skills/
@@ -98,10 +104,14 @@ agent/
 `-- tools/
     |-- approve_skill_review_candidate.ts
     |-- deactivate_active_skill.ts
+    |-- delete_schedule.ts
     |-- delete_skill.ts
+    |-- get_active_schedules.ts
     |-- get_active_skills.ts
     |-- get_current_datetime.ts
     |-- get_skill_review_candidates.ts
+    |-- send_slack_file.ts
+    |-- send_slack_message.ts
     `-- get_weather.ts
 ```
 
@@ -197,6 +207,13 @@ erDiagram
     text owner_user_id
     jsonb metadata
     uuid supersedes_id FK
+    timestamp next_run_at
+    text lease_token
+    timestamp lease_expires_at
+    timestamp last_dispatched_at
+    timestamp last_dispatch_completed_at
+    text last_dispatch_error
+    integer dispatch_attempts
     timestamp created_at
     timestamp updated_at
   }
@@ -248,13 +265,19 @@ Stores DB-backed eve skills and review candidates.
 
 Stores DB-backed Eve schedules generated from Slack analytics.
 
-- Runtime dispatcher execution is not implemented yet; rows are stored for
-  lifecycle management and future dynamic dispatch.
-- Runtime eligibility requires `enabled = true` and `active = true`.
+- Runtime dispatch uses Eve's dynamic scheduling pattern: one static dispatcher
+  schedule claims due DB rows and starts proactive Slack sessions with
+  `receive(slack, ...)`.
+- Runtime eligibility requires `enabled = true`, `active = true`, and
+  `nextRunAt` due.
 - Versions are scoped by `(ownerUserId, slug)`.
 - Only one active row per `(ownerUserId, slug)` is allowed.
 - `schedule.improve` creates a new active version and deactivates the previous
   active version for the same owner and slug.
+- `leaseToken` and `leaseExpiresAt` prevent overlapping workers from dispatching
+  the same due row; expired leases are recoverable.
+- Delivery is at least once, so scheduled prompts that perform side effects
+  should tolerate repeated execution.
 - `metadata.lifecycle` records deletion details.
 
 ### `cache_entries`
@@ -300,6 +323,12 @@ Owns DB-backed schedule reads and lifecycle operations.
   deactivates the previous active version for the same owner and slug.
 - `getActiveSchedules()` lists active schedules, optionally filtered by owner or
   slug.
+- `claimDueSchedules()` claims active due schedules with `FOR UPDATE SKIP
+  LOCKED` and a short lease.
+- `completeScheduleDispatch()` clears the lease and computes the next run after
+  a successful proactive Slack handoff.
+- `releaseScheduleDispatch()` clears the lease, stores a bounded error, and
+  schedules a retry after failed dispatch.
 - `softDeleteSchedule()` disables a schedule when the requester is the owner or
   an admin.
 
@@ -334,6 +363,7 @@ sequenceDiagram
   participant SlackAPI as Slack Web API
   participant Skills as skills
   participant Schedules as schedules
+  participant ScheduleDispatcher as repository-schedules schedule
 
   Slack->>DB: recordSlackUserMessage(status=pending)
   AnalysisSchedule->>DB: claim pending rows
@@ -348,6 +378,9 @@ sequenceDiagram
   Generator->>Schedules: create or improve active schedule
   Generator->>SlackAPI: post success notification best-effort
   Generator->>DB: mark artifact_generation_status=review
+  ScheduleDispatcher->>Schedules: claim due schedules with lease
+  ScheduleDispatcher->>Slack: receive proactive scheduled prompt
+  ScheduleDispatcher->>Schedules: complete or release lease
 ```
 
 The intent analyzer uses `SLACK_MESSAGE_INTENT_PROMPT`, best-effort Slack thread
@@ -440,6 +473,15 @@ General utility tools:
 
 ## Schedules
 
+### `agent/schedules/repository-schedules.ts`
+
+- Cron: `* * * * *`
+- Processor: `processDueRepositorySchedules`
+- Default batch size: 10
+- Claims due DB-backed schedules with a 5 minute lease and dispatches each one
+  through proactive Slack `receive(slack, ...)`.
+- Logs only when at least one row was claimed.
+
 ### `agent/schedules/slack-message-analytics.ts`
 
 - Cron: `* * * * *`
@@ -485,6 +527,8 @@ Existing migrations:
 - `0001_smooth_shinko_yamashiro.sql`: `cache_entries`.
 - `0002_late_dark_phoenix.sql`: `slack_message_analytics`.
 - `0003_illegal_obadiah_stane.sql`: artifact-generation fields and indexes.
+- `0004_same_vance_astro.sql`: `schedules`.
+- `0005_glorious_speed.sql`: schedule dispatch lease state and indexes.
 
 ## Environment Expectations
 
