@@ -8,6 +8,7 @@ import {
   SLACK_ARTIFACT_GENERATION_PROMPT,
   SLACK_ARTIFACT_GENERATION_PROMPT_PATH,
 } from "#lib/prompts/slack-artifact-generation-prompt.js";
+import { loadSlackThreadHistory } from "#lib/slack/thread-history.js";
 import type { StoredSlackMessageAnalysis } from "#lib/storage/slack-message-analytics-repository.js";
 import type { StorageMetadata } from "#lib/storage/schema.js";
 
@@ -75,6 +76,11 @@ export async function generateSlackArtifactCandidate(
   const { inventory, warnings } = await loadArtifactInventory({
     scheduleOwnerUserId: message.userId,
   });
+  const threadHistory = await loadSlackThreadHistory({
+    channelId: message.channelId,
+    threadTs: message.threadTs,
+    messageTs: message.messageTs,
+  });
   const target = targetFromIntent(message.intent);
 
   if (!target) {
@@ -111,6 +117,9 @@ export async function generateSlackArtifactCandidate(
         2
       ),
       "",
+      "Slack thread history:",
+      threadHistory.transcript || "No Slack thread history was available.",
+      "",
       "Existing active and enabled DB artifacts:",
       JSON.stringify(inventory, null, 2),
     ].join("\n"),
@@ -129,6 +138,12 @@ export async function generateSlackArtifactCandidate(
         scheduleCount: inventory.schedules.length,
         warnings,
       },
+      slackThreadHistory: {
+        messageCount: threadHistory.messageCount,
+        includedMessageCount: threadHistory.messages.length,
+        truncated: threadHistory.truncated,
+        warnings: threadHistory.warnings,
+      },
       prompt: {
         path: SLACK_ARTIFACT_GENERATION_PROMPT_PATH,
         hash: PROMPT_HASH,
@@ -138,7 +153,8 @@ export async function generateSlackArtifactCandidate(
 
   const outputTarget = normalizeTarget(result.output.target ?? result.output.type);
   const outputResult =
-    normalizeResult(result.output.result) ?? (result.output.content ? "candidate" : "skip");
+    normalizeResult(result.output.result) ??
+    (result.output.content || result.output.markdown || result.output.cron ? "candidate" : "skip");
   const reason = result.output.reason ?? "Generated from a completed Slack analytics row.";
 
   if (outputResult === "skip") {

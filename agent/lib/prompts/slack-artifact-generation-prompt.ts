@@ -21,6 +21,9 @@ Generation rules:
 - Preserve the user's requested behavior without adding unrelated requirements.
 - Prefer short, specific artifacts over broad policies.
 - Use the existing artifact inventory to avoid duplicate slugs and to understand improvement requests.
+- Use Slack thread history as supporting context for disambiguation and fuller artifact content.
+- If Slack thread history contains newer explicit user clarification, prefer that clarification over the original trigger message.
+- Do not treat short assistant acknowledgement messages, such as "request received" or "processing", as artifact requirements.
 - For \`*.improve\` intents, generate a full replacement candidate for the target artifact, not a patch fragment.
 - Use lowercase kebab-case slugs.
 - Keep skill content and schedule markdown readable as markdown.
