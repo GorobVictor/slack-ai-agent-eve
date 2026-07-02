@@ -1,7 +1,11 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 
+import { getNextScheduleRunAt } from "#lib/schedules/cron.js";
+
 import { getDb } from "./db.js";
 import { type Schedule, type StorageMetadata, schedules } from "./schema.js";
+
+const MAX_DISPATCH_ERROR_LENGTH = 2_000;
 
 export type StoredSchedule = {
   id: string;
@@ -15,8 +19,20 @@ export type StoredSchedule = {
   ownerUserId: string;
   metadata: StorageMetadata;
   supersedesId: string | null;
+  nextRunAt: string | null;
+  leaseToken: string | null;
+  leaseExpiresAt: string | null;
+  lastDispatchedAt: string | null;
+  lastDispatchCompletedAt: string | null;
+  lastDispatchError: string | null;
+  dispatchAttempts: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ClaimedSchedule = StoredSchedule & {
+  leaseToken: string;
+  leaseExpiresAt: string;
 };
 
 export type CreateScheduleInput = {
@@ -43,9 +59,39 @@ export type SoftDeleteScheduleInput = {
   reason?: string;
 };
 
+export type ClaimDueSchedulesInput = {
+  now?: Date;
+  limit?: number;
+  leaseForMs: number;
+};
+
+export type ReleaseScheduleDispatchInput = {
+  schedule: ClaimedSchedule;
+  error: unknown;
+  retryAt: Date;
+};
+
+type RawScheduleRow = Omit<
+  StoredSchedule,
+  | "nextRunAt"
+  | "leaseExpiresAt"
+  | "lastDispatchedAt"
+  | "lastDispatchCompletedAt"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  nextRunAt: Date | string | null;
+  leaseExpiresAt: Date | string | null;
+  lastDispatchedAt: Date | string | null;
+  lastDispatchCompletedAt: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
+
 export async function createSchedule(input: CreateScheduleInput) {
   const db = getDb();
   const now = new Date();
+  const nextRunAt = getNextScheduleRunAt(input.cron, now);
 
   const [current] = await db
     .select()
@@ -70,6 +116,7 @@ export async function createSchedule(input: CreateScheduleInput) {
         input,
         version: await getNextScheduleVersion(input.ownerUserId, input.slug),
         metadata: input.metadata ?? {},
+        nextRunAt,
         updatedAt: now,
       })
     )
@@ -81,6 +128,7 @@ export async function createSchedule(input: CreateScheduleInput) {
 export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
   const db = getDb();
   const now = new Date();
+  const nextRunAt = getNextScheduleRunAt(input.cron, now);
 
   const [current] = await db
     .select()
@@ -104,6 +152,7 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
           input,
           version,
           metadata: input.metadata ?? {},
+          nextRunAt,
           updatedAt: now,
         })
       )
@@ -125,6 +174,7 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
         version,
         metadata: input.metadata ?? current.metadata,
         supersedesId: current.id,
+        nextRunAt,
         updatedAt: now,
       })
     )
@@ -148,6 +198,100 @@ export async function getActiveSchedules(input: GetActiveSchedulesInput = {}) {
   return rows.map(serializeSchedule);
 }
 
+export async function claimDueSchedules(input: ClaimDueSchedulesInput) {
+  const safeLimit = Math.max(1, Math.min(input.limit ?? 10, 50));
+  const now = input.now ?? new Date();
+  const leaseExpiresAt = new Date(now.getTime() + input.leaseForMs);
+
+  const result = await getDb().execute<RawScheduleRow>(sql`
+    with claimed as (
+      select id
+      from ${schedules}
+      where enabled = true
+        and active = true
+        and next_run_at is not null
+        and next_run_at <= ${now}
+        and (
+          lease_token is null
+          or lease_expires_at is null
+          or lease_expires_at <= ${now}
+        )
+      order by next_run_at asc, owner_user_id asc, slug asc
+      limit ${safeLimit}
+      for update skip locked
+    )
+    update ${schedules}
+    set
+      lease_token = gen_random_uuid()::text,
+      lease_expires_at = ${leaseExpiresAt},
+      last_dispatched_at = ${now},
+      last_dispatch_error = null,
+      dispatch_attempts = dispatch_attempts + 1,
+      updated_at = ${now}
+    where id in (select id from claimed)
+    returning
+      id,
+      slug,
+      version,
+      title,
+      cron,
+      markdown,
+      enabled,
+      active,
+      owner_user_id as "ownerUserId",
+      metadata,
+      supersedes_id as "supersedesId",
+      next_run_at as "nextRunAt",
+      lease_token as "leaseToken",
+      lease_expires_at as "leaseExpiresAt",
+      last_dispatched_at as "lastDispatchedAt",
+      last_dispatch_completed_at as "lastDispatchCompletedAt",
+      last_dispatch_error as "lastDispatchError",
+      dispatch_attempts as "dispatchAttempts",
+      created_at as "createdAt",
+      updated_at as "updatedAt"
+  `);
+
+  return result.rows.map(serializeRawClaimedSchedule);
+}
+
+export async function completeScheduleDispatch(schedule: ClaimedSchedule, completedAt = new Date()) {
+  const nextRunAt = getNextScheduleRunAt(schedule.cron, completedAt);
+  const [updated] = await getDb()
+    .update(schedules)
+    .set({
+      nextRunAt,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      lastDispatchCompletedAt: completedAt,
+      lastDispatchError: null,
+      updatedAt: completedAt,
+    })
+    .where(and(eq(schedules.id, schedule.id), eq(schedules.leaseToken, schedule.leaseToken)))
+    .returning();
+
+  return updated ? serializeSchedule(updated) : null;
+}
+
+export async function releaseScheduleDispatch(input: ReleaseScheduleDispatchInput) {
+  const now = new Date();
+  const [updated] = await getDb()
+    .update(schedules)
+    .set({
+      nextRunAt: input.retryAt,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      lastDispatchError: formatDispatchError(input.error),
+      updatedAt: now,
+    })
+    .where(
+      and(eq(schedules.id, input.schedule.id), eq(schedules.leaseToken, input.schedule.leaseToken))
+    )
+    .returning();
+
+  return updated ? serializeSchedule(updated) : null;
+}
+
 export async function softDeleteSchedule(input: SoftDeleteScheduleInput) {
   const db = getDb();
   const now = new Date();
@@ -166,6 +310,9 @@ export async function softDeleteSchedule(input: SoftDeleteScheduleInput) {
     .set({
       enabled: false,
       active: false,
+      nextRunAt: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
       metadata: withLifecycleMetadata(schedule.metadata, {
         deletedAt: now.toISOString(),
         deletedBy: input.requesterUserId,
@@ -201,8 +348,53 @@ function serializeSchedule(schedule: Schedule): StoredSchedule {
     ownerUserId: schedule.ownerUserId,
     metadata: schedule.metadata,
     supersedesId: schedule.supersedesId,
+    nextRunAt: toIsoStringOrNull(schedule.nextRunAt),
+    leaseToken: schedule.leaseToken,
+    leaseExpiresAt: toIsoStringOrNull(schedule.leaseExpiresAt),
+    lastDispatchedAt: toIsoStringOrNull(schedule.lastDispatchedAt),
+    lastDispatchCompletedAt: toIsoStringOrNull(schedule.lastDispatchCompletedAt),
+    lastDispatchError: schedule.lastDispatchError,
+    dispatchAttempts: schedule.dispatchAttempts,
     createdAt: schedule.createdAt.toISOString(),
     updatedAt: schedule.updatedAt.toISOString(),
+  };
+}
+
+function serializeRawClaimedSchedule(row: RawScheduleRow): ClaimedSchedule {
+  const schedule = serializeRawSchedule(row);
+  if (!schedule.leaseToken || !schedule.leaseExpiresAt) {
+    throw new Error(`Claimed schedule is missing lease data: ${schedule.id}`);
+  }
+
+  return {
+    ...schedule,
+    leaseToken: schedule.leaseToken,
+    leaseExpiresAt: schedule.leaseExpiresAt,
+  };
+}
+
+function serializeRawSchedule(row: RawScheduleRow): StoredSchedule {
+  return {
+    id: row.id,
+    slug: row.slug,
+    version: row.version,
+    title: row.title,
+    cron: row.cron,
+    markdown: row.markdown,
+    enabled: row.enabled,
+    active: row.active,
+    ownerUserId: row.ownerUserId,
+    metadata: row.metadata,
+    supersedesId: row.supersedesId,
+    nextRunAt: toIsoStringOrNull(row.nextRunAt),
+    leaseToken: row.leaseToken,
+    leaseExpiresAt: toIsoStringOrNull(row.leaseExpiresAt),
+    lastDispatchedAt: toIsoStringOrNull(row.lastDispatchedAt),
+    lastDispatchCompletedAt: toIsoStringOrNull(row.lastDispatchCompletedAt),
+    lastDispatchError: row.lastDispatchError,
+    dispatchAttempts: row.dispatchAttempts,
+    createdAt: toIsoString(row.createdAt),
+    updatedAt: toIsoString(row.updatedAt),
   };
 }
 
@@ -224,6 +416,7 @@ function buildScheduleInsertValues(input: {
   version: number;
   metadata: StorageMetadata;
   supersedesId?: string;
+  nextRunAt: Date;
   updatedAt: Date;
 }) {
   return {
@@ -237,8 +430,23 @@ function buildScheduleInsertValues(input: {
     ownerUserId: input.input.ownerUserId,
     metadata: input.metadata,
     supersedesId: input.supersedesId,
+    nextRunAt: input.nextRunAt,
     updatedAt: input.updatedAt,
   };
+}
+
+function toIsoStringOrNull(value: Date | string | null) {
+  if (!value) return null;
+  return toIsoString(value);
+}
+
+function toIsoString(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function formatDispatchError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.slice(0, MAX_DISPATCH_ERROR_LENGTH);
 }
 
 function withoutUndefined(input: Record<string, string | undefined>) {

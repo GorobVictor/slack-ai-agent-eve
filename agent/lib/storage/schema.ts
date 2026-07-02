@@ -73,6 +73,13 @@ export const schedules = pgTable(
     ownerUserId: text("owner_user_id").notNull(),
     metadata: jsonb("metadata").$type<StorageMetadata>().notNull().default(sql`'{}'::jsonb`),
     supersedesId: uuid("supersedes_id").references((): AnyPgColumn => schedules.id),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    lastDispatchedAt: timestamp("last_dispatched_at", { withTimezone: true }),
+    lastDispatchCompletedAt: timestamp("last_dispatch_completed_at", { withTimezone: true }),
+    lastDispatchError: text("last_dispatch_error"),
+    dispatchAttempts: integer("dispatch_attempts").notNull().default(0),
     ...timestamps(),
   },
   (table) => [
@@ -89,6 +96,12 @@ export const schedules = pgTable(
       table.enabled,
       table.ownerUserId,
       table.slug
+    ),
+    index("schedules_active_enabled_next_run_lease_idx").on(
+      table.active,
+      table.enabled,
+      table.nextRunAt,
+      table.leaseExpiresAt
     ),
     index("schedules_owner_created_at_idx").on(table.ownerUserId, table.createdAt),
   ]
