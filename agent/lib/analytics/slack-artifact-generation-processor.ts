@@ -43,11 +43,7 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
         result.target === "skill"
           ? await createSkillArtifactGenerationMetadata(result, metadata)
           : await createScheduleArtifactGenerationMetadata(message, result, metadata);
-      const notificationMetadata = await notifyArtifactGenerationSuccess(
-        message,
-        result,
-        artifactGenerationMetadata
-      );
+      const notificationMetadata = await notifyArtifactGenerationSuccess(message, artifactGenerationMetadata);
 
       await completeSlackArtifactGeneration({
         id: message.id,
@@ -118,7 +114,6 @@ async function createScheduleArtifactGenerationMetadata(
 
 async function notifyArtifactGenerationSuccess(
   message: StoredSlackMessageAnalysis,
-  result: Extract<Awaited<ReturnType<typeof generateSlackArtifactCandidate>>, { status: "candidate" }>,
   artifact: {
     target: "skill" | "schedule";
     slug: string;
@@ -127,7 +122,7 @@ async function notifyArtifactGenerationSuccess(
     cron?: string;
   }
 ) {
-  const markdown = buildArtifactNotificationMessage(message, result, artifact);
+  const markdown = buildArtifactNotificationMessage(message, artifact);
 
   try {
     const posted = await postSlackMessage({
@@ -158,7 +153,6 @@ async function notifyArtifactGenerationSuccess(
 
 function buildArtifactNotificationMessage(
   message: StoredSlackMessageAnalysis,
-  result: Extract<Awaited<ReturnType<typeof generateSlackArtifactCandidate>>, { status: "candidate" }>,
   artifact: {
     target: "skill" | "schedule";
     slug: string;
@@ -169,7 +163,7 @@ function buildArtifactNotificationMessage(
 ) {
   const name = artifact.title || artifact.slug;
 
-  if (result.target === "skill") {
+  if (artifact.target === "skill") {
     return `Created a skill review candidate: ${name} v${artifact.version}.`;
   }
 
