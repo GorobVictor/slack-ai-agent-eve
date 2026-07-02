@@ -1,6 +1,5 @@
-import { connectSlackCredentials } from "@vercel/connect/eve";
+import { callSlackApi } from "./api.js";
 
-const SLACK_CONNECTOR_ID = "slack/eve";
 const DEFAULT_MESSAGE_LIMIT = 50;
 const DEFAULT_MAX_TRANSCRIPT_CHARS = 12_000;
 
@@ -43,8 +42,6 @@ type RawSlackMessage = {
   markdown?: string;
 };
 
-const credentials = connectSlackCredentials(SLACK_CONNECTOR_ID);
-
 export async function loadSlackThreadHistory(
   input: SlackThreadHistoryInput
 ): Promise<SlackThreadHistoryResult> {
@@ -60,38 +57,12 @@ export async function loadSlackThreadHistory(
       return emptyHistory(`Slack API conversations.replies failed: ${response.error ?? "unknown"}`);
     }
 
-    const messages = normalizeMessages(response.messages ?? [], input.messageTs);
+    const rawMessages = Array.isArray(response.messages) ? response.messages : [];
+    const messages = normalizeMessages(rawMessages, input.messageTs);
     return buildHistoryResult(messages, input.maxTranscriptChars ?? DEFAULT_MAX_TRANSCRIPT_CHARS, []);
   } catch (error) {
     return emptyHistory(formatWarning(error));
   }
-}
-
-async function callSlackApi(operation: string, body: Record<string, string | number | boolean>) {
-  const token = await resolveBotToken();
-  const params = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(body)) {
-    params.set(key, String(value));
-  }
-
-  const response = await fetch(`https://slack.com/api/${operation}`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    body: params,
-  });
-
-  return (await response.json()) as SlackApiResponse;
-}
-
-async function resolveBotToken() {
-  const token = credentials.botToken;
-  if (typeof token === "function") return token();
-  if (typeof token === "string" && token.length > 0) return token;
-  throw new Error("Slack bot token credentials are not configured");
 }
 
 function normalizeMessages(messages: RawSlackMessage[], triggerMessageTs: string | null | undefined) {

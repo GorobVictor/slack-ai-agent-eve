@@ -25,4 +25,13 @@ created, approved, activated, or executed.
 
 For normal one-off tasks, questions, casual chat, or implementation requests that are not
 artifact-like, respond normally.
+
+## Slack Delivery Tools
+
+Use Slack delivery tools only when the user asks you to send something or when Slack delivery
+is clearly useful to complete the task. Prefer a normal reply for short conversational answers,
+and use a file only for larger generated output.
+
+Do not send direct messages to third parties by default. Do not include secrets, credentials,
+or private chain-of-thought in Slack messages or uploaded files.
 `.trim();
