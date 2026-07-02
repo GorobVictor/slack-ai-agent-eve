@@ -330,6 +330,7 @@ sequenceDiagram
   participant Intent as slack-message-intent.ts
   participant ArtifactSchedule as slack-artifact-review schedule
   participant Generator as slack-artifact-generation.ts
+  participant SlackAPI as Slack Web API
   participant Skills as skills
   participant Schedules as schedules
 
@@ -339,6 +340,7 @@ sequenceDiagram
   Intent->>DB: complete with intent and metadata
   ArtifactSchedule->>DB: claim completed actionable rows
   ArtifactSchedule->>Generator: generate candidate or skip
+  Generator->>SlackAPI: fetch thread history best-effort
   Generator->>Skills: create review candidate
   Generator->>Schedules: create or improve active schedule
   Generator->>DB: mark artifact_generation_status=review
@@ -349,10 +351,12 @@ inventory of active DB skills and the Slack user's active schedules so the model
 can decide whether the message asks to create or improve an artifact.
 
 The artifact generator uses `SLACK_ARTIFACT_GENERATION_PROMPT`, the analytics
-row, and the same artifact inventory. It normalizes model output, enforces a
+row, the same artifact inventory, and best-effort Slack thread history from
+`agent/lib/slack/thread-history.ts`. It normalizes model output, enforces a
 lowercase kebab-case slug, and skips rows that do not produce a complete skill or
 schedule candidate. Schedule candidates require both a five-field `cron` and a
-`markdown` prompt.
+`markdown` prompt. Slack history fetch failures are stored as generation
+metadata warnings and must not block artifact generation.
 
 ## Dynamic Skills
 

@@ -96,6 +96,7 @@ flowchart LR
 
   ScheduleB[slack-artifact-review schedule] --> ArtifactProcessor[slack-artifact-generation-processor.ts]
   ArtifactProcessor --> ArtifactModel[slack-artifact-generation.ts]
+  ArtifactModel --> SlackAPI[Slack Web API]
   ArtifactProcessor --> Skills
   ArtifactProcessor --> Schedules
 ```
@@ -177,6 +178,10 @@ The process is intentionally asynchronous:
    disabled, inactive review candidates until an admin approves them.
 5. Generated schedules are created or improved directly as active
    owner-scoped schedule rows.
+
+During artifact generation, the generator can also fetch Slack thread history
+best-effort from the Slack Web API so candidates can use richer context than
+the single triggering message.
 
 ## Skill Lifecycle
 
@@ -344,6 +349,8 @@ Stores Slack messages and asynchronous processing state.
 │   │   │   ├── instructions-prompt.ts
 │   │   │   ├── slack-artifact-generation-prompt.ts
 │   │   │   └── slack-message-intent-prompt.ts
+│   │   ├── slack/
+│   │   │   └── thread-history.ts
 │   │   ├── schedules/
 │   │   │   └── tool-output.ts
 │   │   ├── skills/
@@ -452,6 +459,7 @@ unsupported authored agent directory.
 
 - `agent/lib/storage/` owns Neon, Drizzle schema, repositories, and cache.
 - `agent/lib/analytics/` owns Slack intent analysis and artifact generation.
+- `agent/lib/slack/` owns Slack Web API helpers used by analytics/generation.
 - `agent/lib/prompts/` owns editable prompt constants as multiline template
   literals.
 - `agent/lib/auth/` owns admin authorization helpers.
