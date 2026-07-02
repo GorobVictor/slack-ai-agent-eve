@@ -352,6 +352,8 @@ Stores Slack messages and asynchronous processing state.
 │   │   │   ├── slack-artifact-generation-prompt.ts
 │   │   │   └── slack-message-intent-prompt.ts
 │   │   ├── slack/
+│   │   │   ├── api.ts
+│   │   │   ├── context.ts
 │   │   │   └── thread-history.ts
 │   │   ├── schedules/
 │   │   │   └── tool-output.ts
@@ -379,6 +381,8 @@ Stores Slack messages and asynchronous processing state.
 │       ├── get_active_schedules.ts
 │       ├── get_current_datetime.ts
 │       ├── get_skill_review_candidates.ts
+│       ├── send_slack_file.ts
+│       ├── send_slack_message.ts
 │       └── get_weather.ts
 ├── drizzle/
 ├── proto/features/
@@ -435,6 +439,10 @@ Stores Slack messages and asynchronous processing state.
 - `get_active_schedules.ts` lists active DB-backed schedules for the caller,
   with optional admin-wide listing.
 - `get_skill_review_candidates.ts` lists review candidates.
+- `send_slack_message.ts` posts a Slack message to the current thread or sends
+  a DM to the triggering user by default.
+- `send_slack_file.ts` uploads generated text output as a Slack file to the
+  current thread or to a DM.
 - `get_current_datetime.ts` returns the current localized datetime.
 - `get_weather.ts` resolves a city through Open-Meteo geocoding and returns the
   current forecast.
@@ -461,7 +469,7 @@ unsupported authored agent directory.
 
 - `agent/lib/storage/` owns Neon, Drizzle schema, repositories, and cache.
 - `agent/lib/analytics/` owns Slack intent analysis and artifact generation.
-- `agent/lib/slack/` owns Slack Web API helpers used by analytics/generation.
+- `agent/lib/slack/` owns Slack Web API helpers and Slack tool context helpers.
 - `agent/lib/prompts/` owns editable prompt constants as multiline template
   literals.
 - `agent/lib/auth/` owns admin authorization helpers.

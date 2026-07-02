@@ -405,6 +405,24 @@ Schedule tools:
 - `delete_schedule`: soft-deletes a schedule when the Slack user owns it or is
   listed in `SKILL_ADMIN_USER_IDS`.
 
+Slack delivery tools use `requireSlackToolContext(ctx)` from
+`agent/lib/slack/context.ts` and shared Slack Web API helpers from
+`agent/lib/slack/api.ts`.
+
+Slack delivery tools:
+
+- `send_slack_message`: posts a Slack message to the current thread or sends a
+  direct message. Thread delivery defaults to the current channel/thread; DM
+  delivery defaults to the triggering Slack user.
+- `send_slack_file`: uploads generated text content as a Slack file to the
+  current thread or to a direct message.
+
+Use delivery tools only when the user asks or when delivery is clearly useful to
+complete the task. Do not send DMs to third parties by default, and do not send
+secrets or private chain-of-thought. The connected Slack app must have the
+required Slack scopes for `chat.postMessage`, `conversations.open`, and external
+file upload APIs.
+
 General utility tools:
 
 - `get_current_datetime`: returns localized current datetime.
