@@ -174,7 +174,9 @@ The process is intentionally asynchronous:
 2. `agent/schedules/slack-message-analytics.ts` runs every minute and processes
    pending Slack analytics rows in batches of 10. Intent analysis can fetch
    Slack thread history best-effort to improve `*.create` vs `*.improve`
-   classification without blocking analysis completion.
+   classification without blocking analysis completion. If intent analysis
+   fails, the processor still marks the row as failed and posts a best-effort
+   failure notification to the originating Slack thread.
 3. `agent/schedules/slack-artifact-review.ts` runs every 5 minutes and processes
    completed actionable analytics rows in batches of 5.
 4. Generated skill candidates are not activated immediately. They are stored as
@@ -189,6 +191,9 @@ the single triggering message.
 After a successful artifact write, the processor also posts a best-effort
 success notification back to the originating Slack thread. Notification failures
 are recorded in metadata and do not fail artifact generation.
+
+Analysis failure notification outcomes are also recorded in analytics metadata,
+including delivery status, Slack message timestamp, or notification error.
 
 ## Skill Lifecycle
 

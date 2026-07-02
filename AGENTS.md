@@ -312,7 +312,8 @@ Owns Slack analytics persistence and job claiming.
 - `claimPendingSlackMessageAnalyses()` claims pending analysis rows with
   `FOR UPDATE SKIP LOCKED`.
 - `completeSlackMessageAnalysis()` stores the model-classified intent.
-- `failSlackMessageAnalysis()` records a bounded error message.
+- `failSlackMessageAnalysis()` records a bounded error message and optional
+  failure metadata.
 - `claimPendingSlackArtifactGenerations()` claims completed actionable rows for
   `skill.create`, `skill.improve`, `schedule.create`, and `schedule.improve`.
 - `completeSlackArtifactGeneration()` stores `review` or `skipped`.
@@ -339,6 +340,7 @@ sequenceDiagram
   AnalysisSchedule->>Intent: classify message
   Intent->>SlackAPI: fetch thread history best-effort
   Intent->>DB: complete with intent and metadata
+  Intent-->>SlackAPI: post failure notification best-effort
   ArtifactSchedule->>DB: claim completed actionable rows
   ArtifactSchedule->>Generator: generate candidate or skip
   Generator->>SlackAPI: fetch thread history best-effort
@@ -353,6 +355,9 @@ history from `agent/lib/slack/thread-history.ts`, and a compact inventory of
 active DB skills plus the Slack user's active schedules so the model can decide
 whether the message asks to create or improve an artifact. Schedule inventory is
 scoped to the triggering Slack user to avoid improving another user's schedule.
+When analysis fails, the processor marks the analytics row as failed and posts a
+best-effort Slack notification to the originating thread; notification status or
+error is stored in analytics metadata without schema changes.
 
 The artifact generator uses `SLACK_ARTIFACT_GENERATION_PROMPT`, the analytics
 row, the same artifact inventory, and best-effort Slack thread history from
