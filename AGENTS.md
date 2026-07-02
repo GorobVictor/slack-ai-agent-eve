@@ -66,7 +66,8 @@ agent/
 |   |-- eve.ts
 |   `-- slack.ts
 |-- connections/
-|   `-- github.ts
+|   |-- github.ts
+|   `-- notion.ts
 |-- lib/
 |   |-- analytics/
 |   |   |-- artifact-inventory.ts
