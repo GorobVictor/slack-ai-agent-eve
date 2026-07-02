@@ -112,27 +112,23 @@ export async function upsertScheduleVersion(input: UpsertScheduleVersionInput) {
     return serializeSchedule(created);
   }
 
-  const created = await db.transaction(async (tx) => {
-    await tx
-      .update(schedules)
-      .set({ active: false, enabled: false, updatedAt: now })
-      .where(eq(schedules.id, current.id));
+  await db
+    .update(schedules)
+    .set({ active: false, enabled: false, updatedAt: now })
+    .where(eq(schedules.id, current.id));
 
-    const [nextVersion] = await tx
-      .insert(schedules)
-      .values(
-        buildScheduleInsertValues({
-          input,
-          version,
-          metadata: input.metadata ?? current.metadata,
-          supersedesId: current.id,
-          updatedAt: now,
-        })
-      )
-      .returning();
-
-    return nextVersion;
-  });
+  const [created] = await db
+    .insert(schedules)
+    .values(
+      buildScheduleInsertValues({
+        input,
+        version,
+        metadata: input.metadata ?? current.metadata,
+        supersedesId: current.id,
+        updatedAt: now,
+      })
+    )
+    .returning();
 
   return serializeSchedule(created);
 }
