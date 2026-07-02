@@ -337,6 +337,7 @@ sequenceDiagram
   Slack->>DB: recordSlackUserMessage(status=pending)
   AnalysisSchedule->>DB: claim pending rows
   AnalysisSchedule->>Intent: classify message
+  Intent->>SlackAPI: fetch thread history best-effort
   Intent->>DB: complete with intent and metadata
   ArtifactSchedule->>DB: claim completed actionable rows
   ArtifactSchedule->>Generator: generate candidate or skip
@@ -346,9 +347,11 @@ sequenceDiagram
   Generator->>DB: mark artifact_generation_status=review
 ```
 
-The intent analyzer uses `SLACK_MESSAGE_INTENT_PROMPT` and includes a compact
-inventory of active DB skills and the Slack user's active schedules so the model
-can decide whether the message asks to create or improve an artifact.
+The intent analyzer uses `SLACK_MESSAGE_INTENT_PROMPT`, best-effort Slack thread
+history from `agent/lib/slack/thread-history.ts`, and a compact inventory of
+active DB skills plus the Slack user's active schedules so the model can decide
+whether the message asks to create or improve an artifact. Schedule inventory is
+scoped to the triggering Slack user to avoid improving another user's schedule.
 
 The artifact generator uses `SLACK_ARTIFACT_GENERATION_PROMPT`, the analytics
 row, the same artifact inventory, and best-effort Slack thread history from

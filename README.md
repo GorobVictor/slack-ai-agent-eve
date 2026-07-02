@@ -171,7 +171,9 @@ The process is intentionally asynchronous:
 1. Slack ingress remains fast and resilient. Analytics writes are wrapped in a
    `try/catch`, so a storage failure does not block the response path.
 2. `agent/schedules/slack-message-analytics.ts` runs every minute and processes
-   pending Slack analytics rows in batches of 10.
+   pending Slack analytics rows in batches of 10. Intent analysis can fetch
+   Slack thread history best-effort to improve `*.create` vs `*.improve`
+   classification without blocking analysis completion.
 3. `agent/schedules/slack-artifact-review.ts` runs every 5 minutes and processes
    completed actionable analytics rows in batches of 5.
 4. Generated skill candidates are not activated immediately. They are stored as
