@@ -67,7 +67,8 @@ agent/
 |   `-- slack.ts
 |-- connections/
 |   |-- github.ts
-|   `-- notion.ts
+|   |-- notion.ts
+|   `-- slack.ts
 |-- lib/
 |   |-- analytics/
 |   |   |-- artifact-inventory.ts

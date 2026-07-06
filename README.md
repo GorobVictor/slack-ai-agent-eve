@@ -361,7 +361,8 @@ Stores Slack messages and asynchronous processing state.
 │   │   └── slack.ts
 │   ├── connections/
 │   │   ├── github.ts
-│   │   └── notion.ts
+│   │   ├── notion.ts
+│   │   └── slack.ts
 │   ├── lib/
 │   │   ├── analytics/
 │   │   │   ├── artifact-inventory.ts
@@ -445,6 +446,8 @@ Stores Slack messages and asynchronous processing state.
 - `agent/connections/github.ts` configures the GitHub MCP client connection
   through Vercel Connect.
 - `agent/connections/notion.ts` configures the Notion MCP client connection
+  through Vercel Connect.
+- `agent/connections/slack.ts` configures the Slack MCP client connection
   through Vercel Connect.
 
 ### Skills
