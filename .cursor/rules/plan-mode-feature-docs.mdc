@@ -12,3 +12,5 @@ alwaysApply: true
 - Write saved feature documents in English because they are repository content.
 - If the chat plan was created in another language, translate it to English before saving it under `proto/features/`.
 - Keep file paths, identifiers, and code references unchanged during translation.
+- Preserve the approved plan completely when saving it: include the overview, all to-dos and their statuses, every section heading, Context, Plan, Notes, schemas, Mermaid diagrams, code snippets, references, assumptions, verification steps, and any other content from the plan.
+- Do not summarize, collapse, reorder, or omit plan content. Translate prose to English when required, but keep the original structure, section coverage, list items, diagrams, and technical details intact.
