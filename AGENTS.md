@@ -310,7 +310,8 @@ Owns DB-backed skill reads and lifecycle operations.
 - `upsertSkillVersion()` creates or replaces an already-approved active skill.
 - `createSkillReviewCandidate()` creates a disabled, inactive review row.
 - `approveSkillReviewCandidate()` activates a candidate and deactivates the
-  previous active version for the same slug inside a transaction.
+ previous active version for the same slug with sequential Neon HTTP-compatible
+ queries.
 - `deactivateSkill()` disables an active skill.
 - `softDeleteSkill()` marks a skill as deleted and inactive.
 - Mutations call `invalidateSkillsCache()`.
@@ -371,13 +372,13 @@ sequenceDiagram
   AnalysisSchedule->>Intent: classify message
   Intent->>SlackAPI: fetch thread history best-effort
   Intent->>DB: complete with intent and metadata
-  Intent-->>SlackAPI: post failure notification best-effort
+ Intent-->>SlackAPI: post failure log to review channel best-effort
   ArtifactSchedule->>DB: claim completed actionable rows
   ArtifactSchedule->>Generator: generate candidate or skip
   Generator->>SlackAPI: fetch thread history best-effort
   Generator->>Skills: create review candidate
   Generator->>Schedules: create or improve active schedule
-  Generator->>SlackAPI: post success notification best-effort
+ Generator->>SlackAPI: post skill reviews and failure logs to review channel best-effort
   Generator->>DB: mark artifact_generation_status=review
   ScheduleDispatcher->>Schedules: claim due schedules with lease
   ScheduleDispatcher->>Slack: receive proactive scheduled prompt
@@ -390,8 +391,8 @@ active DB skills plus the Slack user's active schedules so the model can decide
 whether the message asks to create or improve an artifact. Schedule inventory is
 scoped to the triggering Slack user to avoid improving another user's schedule.
 When analysis fails, the processor marks the analytics row as failed and posts a
-best-effort Slack notification to the originating thread; notification status or
-error is stored in analytics metadata without schema changes.
+best-effort Slack failure log to `SLACK_SKILL_REVIEW_CHANNEL_ID`; notification
+status or error is stored in analytics metadata without schema changes.
 
 The artifact generator uses `SLACK_ARTIFACT_GENERATION_PROMPT`, the analytics
 row, the same artifact inventory, and best-effort Slack thread history from
@@ -400,8 +401,11 @@ lowercase kebab-case slug, and skips rows that do not produce a complete skill o
 schedule candidate. Schedule candidates require both a five-field `cron` and a
 `markdown` prompt. Slack history fetch failures are stored as generation
 metadata warnings and must not block artifact generation. After a successful DB
-write, the processor posts a best-effort success notification to the originating
-Slack thread and stores notification status, message timestamp, or error in
+write, the processor posts generated skill review candidates to
+`SLACK_SKILL_REVIEW_CHANNEL_ID` with full markdown context and approve/decline
+buttons. Schedule artifacts still post a best-effort success notification to the
+originating Slack thread. Artifact generation failures are logged to the review
+channel, and notification status, message timestamp, or error is stored in
 artifact generation metadata.
 
 ## Dynamic Skills
@@ -541,6 +545,10 @@ Existing migrations:
   to `.env.local`.
 - `SKILL_ADMIN_USER_IDS` is required before skill lifecycle tools can mutate or
   inspect DB-backed skills.
+- `SLACK_SKILL_REVIEW_CHANNEL_ID` is required for generated skill review
+  candidate notifications, approve/decline buttons, and analytics failure logs.
+- Slack Interactive Components must post to the eve Slack webhook route
+  (`/eve/v1/slack`) so review button clicks reach `agent/channels/slack.ts`.
 - Analysis and generation model env vars are optional overrides.
 
 ## Development Commands

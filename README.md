@@ -37,7 +37,8 @@ Fill `DATABASE_URL` in `.env.local` before running migrations or any
 storage-backed runtime code. If you want to use skill review, skill lifecycle,
 or cross-owner schedule management tools, also set `SKILL_ADMIN_USER_IDS` to a
 comma-separated list of Slack user ids allowed to manage DB-backed skills and
-schedules.
+schedules. Set `SLACK_SKILL_REVIEW_CHANNEL_ID` to the Slack channel where
+generated skill review candidates and analytics failure logs should be posted.
 
 ## Environment Variables
 
@@ -45,12 +46,17 @@ schedules.
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Yes for storage-backed features | `agent/lib/storage/db.ts`, `drizzle.config.ts` | Neon Postgres connection string for Drizzle, cache, runtime skills, and Slack analytics. |
 | `SKILL_ADMIN_USER_IDS` | Yes for skill admin and schedule admin behavior | `agent/lib/auth/skill-admin.ts`, `agent/lib/auth/schedule-access.ts` | Comma-separated Slack user ids that may approve, deactivate, delete, or inspect DB-backed skills, and list or delete schedules across owners. |
+| `SLACK_SKILL_REVIEW_CHANNEL_ID` | Yes for generated skill review notifications | `agent/lib/slack/skill-review-notifications.ts` | Slack channel id where generated skill review candidates, approve/decline buttons, and analytics failure logs are posted. |
 | `SLACK_MESSAGE_ANALYSIS_MODEL` | Optional | `agent/lib/analytics/slack-message-intent.ts` | Overrides the model used to classify Slack messages. Defaults to `google/gemma-4-31b-it`. |
 | `SLACK_ARTIFACT_GENERATION_MODEL` | Optional | `agent/lib/analytics/slack-artifact-generation.ts` | Overrides the model used to generate skill and schedule artifacts. Falls back to `SLACK_MESSAGE_ANALYSIS_MODEL`, then `google/gemma-4-31b-it`. |
 
 Slack bot credentials are not stored in `.env.local`. They are resolved through
 `@vercel/connect` by `connectSlackCredentials("slack/eve")` in
 `agent/channels/slack.ts`.
+
+Slack Interactive Components must post to the same eve Slack webhook route as
+Slack events, `/eve/v1/slack`, so generated skill review approve/decline
+buttons can be delivered to `agent/channels/slack.ts`.
 
 ## Scripts
 
