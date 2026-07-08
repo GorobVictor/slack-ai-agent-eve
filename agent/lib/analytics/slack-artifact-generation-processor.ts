@@ -1,5 +1,9 @@
 import { generateSlackArtifactCandidate } from "./slack-artifact-generation.js";
 import { postSlackMessage } from "#lib/slack/api.js";
+import {
+  notifySkillReviewCandidate,
+  notifySlackReviewLog,
+} from "#lib/slack/skill-review-notifications.js";
 import { createSkillReviewCandidate } from "#lib/storage/skills-repository.js";
 import { createSchedule, upsertScheduleVersion } from "#lib/storage/schedules-repository.js";
 import {
@@ -39,11 +43,10 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
       }
 
       const metadata = buildCandidateMetadata(message, result.metadata);
-      const artifactGenerationMetadata =
+      const { artifactGenerationMetadata, notificationMetadata } =
         result.target === "skill"
-          ? await createSkillArtifactGenerationMetadata(result, metadata)
-          : await createScheduleArtifactGenerationMetadata(message, result, metadata);
-      const notificationMetadata = await notifyArtifactGenerationSuccess(message, artifactGenerationMetadata);
+          ? await createSkillReviewArtifact(message, result, metadata)
+          : await createScheduleReviewArtifact(message, result, metadata);
 
       await completeSlackArtifactGeneration({
         id: message.id,
@@ -58,7 +61,18 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
       });
       reviewed += 1;
     } catch (error) {
-      await failSlackArtifactGeneration(message.id, error);
+      await failSlackArtifactGeneration({
+        id: message.id,
+        error,
+        metadata: {
+          artifactGenerationFailureNotification: await notifySlackReviewLog({
+            title: "Slack artifact generation failed",
+            message,
+            error,
+            phase: "artifact_generation",
+          }),
+        },
+      });
       failed += 1;
       console.error("Failed to generate Slack artifact review candidate", {
         messageId: message.id,
@@ -75,7 +89,8 @@ export async function processPendingSlackArtifactGenerations(batchSize = DEFAULT
   };
 }
 
-async function createSkillArtifactGenerationMetadata(
+async function createSkillReviewArtifact(
+  message: StoredSlackMessageAnalysis,
   result: Extract<Awaited<ReturnType<typeof generateSlackArtifactCandidate>>, { target: "skill" }>,
   metadata: StorageMetadata
 ) {
@@ -84,13 +99,31 @@ async function createSkillArtifactGenerationMetadata(
     metadata,
   });
 
-  return {
-    status: "review",
+  const artifactGenerationMetadata = {
+    status: "review" as const,
     target: result.target,
     artifactId: artifact.id,
     slug: artifact.slug,
     title: artifact.title,
     version: artifact.version,
+  };
+
+  return {
+    artifactGenerationMetadata,
+    notificationMetadata: await notifySkillReviewCandidate(message, artifact),
+  };
+}
+
+async function createScheduleReviewArtifact(
+  message: StoredSlackMessageAnalysis,
+  result: Extract<Awaited<ReturnType<typeof generateSlackArtifactCandidate>>, { target: "schedule" }>,
+  metadata: StorageMetadata
+) {
+  const artifactGenerationMetadata = await createScheduleArtifactGenerationMetadata(message, result, metadata);
+
+  return {
+    artifactGenerationMetadata,
+    notificationMetadata: await notifyArtifactGenerationSuccess(message, artifactGenerationMetadata),
   };
 }
 

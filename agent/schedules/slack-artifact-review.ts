@@ -3,7 +3,7 @@ import { defineSchedule } from "eve/schedules";
 import { processPendingSlackArtifactGenerations } from "#lib/analytics/slack-artifact-generation-processor.js";
 
 export default defineSchedule({
-  cron: "*/5 * * * *",
+  cron: "*/2 * * * *",
   async run() {
     const result = await processPendingSlackArtifactGenerations();
     if (result.claimed > 0) {

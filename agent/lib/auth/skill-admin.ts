@@ -20,6 +20,19 @@ export function requireSkillAdmin(ctx: ToolContext): SkillAdminContext {
   return { userId };
 }
 
+export function requireSkillAdminUserId(userId: string | undefined): SkillAdminContext {
+  const allowedUserIds = getAllowedSkillAdminUserIds();
+  if (allowedUserIds.size === 0) {
+    throw new Error(`${SKILL_ADMIN_USER_IDS_ENV} must be configured before changing skills`);
+  }
+
+  if (!userId || !allowedUserIds.has(userId)) {
+    throw new Error("Unauthorized skill admin action");
+  }
+
+  return { userId };
+}
+
 export function getAllowedSkillAdminUserIds() {
   return new Set(
     (process.env[SKILL_ADMIN_USER_IDS_ENV] ?? "")

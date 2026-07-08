@@ -7,6 +7,7 @@ import {
   type SlackMessage,
 } from "eve/channels/slack";
 
+import { handleSkillReviewInteraction } from "#lib/slack/skill-review-interactions.js";
 import { recordSlackUserMessage } from "#lib/storage/slack-message-analytics-repository.js";
 
 export default slackChannel({
@@ -16,6 +17,9 @@ export default slackChannel({
   },
   async onDirectMessage(ctx, message) {
     return handleSlackMessage(ctx, message);
+  },
+  async onInteraction(action, ctx) {
+    await handleSkillReviewInteraction(action, ctx);
   },
 });
 
