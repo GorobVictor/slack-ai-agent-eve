@@ -7,30 +7,11 @@ export type SkillAdminContext = {
 };
 
 export function requireSkillAdmin(ctx: ToolContext): SkillAdminContext {
-  const allowedUserIds = getAllowedSkillAdminUserIds();
-  if (allowedUserIds.size === 0) {
-    throw new Error(`${SKILL_ADMIN_USER_IDS_ENV} must be configured before changing skills`);
-  }
-
-  const userId = extractSlackUserId(ctx);
-  if (!userId || !allowedUserIds.has(userId)) {
-    throw new Error("Unauthorized skill admin action", { cause: ctx });
-  }
-
-  return { userId };
+  return requireAllowedSkillAdminUserId(extractSlackUserId(ctx), ctx);
 }
 
 export function requireSkillAdminUserId(userId: string | undefined): SkillAdminContext {
-  const allowedUserIds = getAllowedSkillAdminUserIds();
-  if (allowedUserIds.size === 0) {
-    throw new Error(`${SKILL_ADMIN_USER_IDS_ENV} must be configured before changing skills`);
-  }
-
-  if (!userId || !allowedUserIds.has(userId)) {
-    throw new Error("Unauthorized skill admin action");
-  }
-
-  return { userId };
+  return requireAllowedSkillAdminUserId(userId);
 }
 
 export function getAllowedSkillAdminUserIds() {
@@ -44,4 +25,24 @@ export function getAllowedSkillAdminUserIds() {
 
 export function extractSlackUserId(ctx: ToolContext) {
   return ctx.session.auth.current?.attributes["user_id"] as string | undefined;
+}
+
+function requireAllowedSkillAdminUserId(
+  userId: string | undefined,
+  unauthorizedCause?: unknown
+): SkillAdminContext {
+  const allowedUserIds = getAllowedSkillAdminUserIds();
+  if (allowedUserIds.size === 0) {
+    throw new Error(`${SKILL_ADMIN_USER_IDS_ENV} must be configured before changing skills`);
+  }
+
+  if (!userId || !allowedUserIds.has(userId)) {
+    if (unauthorizedCause) {
+      throw new Error("Unauthorized skill admin action", { cause: unauthorizedCause });
+    }
+
+    throw new Error("Unauthorized skill admin action");
+  }
+
+  return { userId };
 }
