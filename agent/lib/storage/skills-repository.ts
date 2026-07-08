@@ -188,48 +188,46 @@ export async function createSkillReviewCandidate(input: CreateSkillReviewCandida
 }
 
 export async function approveSkillReviewCandidate(input: ApproveSkillReviewCandidateInput) {
+  const db = getDb();
   const now = new Date();
-  const approved = await getDb().transaction(async (tx) => {
-    const [candidate] = await tx.select().from(skills).where(eq(skills.id, input.id)).limit(1);
 
-    if (!candidate) {
-      throw new Error(`Skill review candidate not found: ${input.id}`);
-    }
+  const [candidate] = await db.select().from(skills).where(eq(skills.id, input.id)).limit(1);
 
-    if (candidate.reviewStatus !== "review") {
-      throw new Error(`Skill is not waiting for review: ${candidate.slug} v${candidate.version}`);
-    }
+  if (!candidate) {
+    throw new Error(`Skill review candidate not found: ${input.id}`);
+  }
 
-    const [current] = await tx
-      .select()
-      .from(skills)
-      .where(and(eq(skills.slug, candidate.slug), eq(skills.active, true)))
-      .limit(1);
+  if (candidate.reviewStatus !== "review") {
+    throw new Error(`Skill is not waiting for review: ${candidate.slug} v${candidate.version}`);
+  }
 
-    if (current && current.id !== candidate.id) {
-      await tx
-        .update(skills)
-        .set({ active: false, enabled: false, updatedAt: now })
-        .where(eq(skills.id, current.id));
-    }
+  const [current] = await db
+    .select()
+    .from(skills)
+    .where(and(eq(skills.slug, candidate.slug), eq(skills.active, true)))
+    .limit(1);
 
-    const [updated] = await tx
+  if (current && current.id !== candidate.id) {
+    await db
       .update(skills)
-      .set({
-        enabled: true,
-        active: true,
-        reviewStatus: "approved",
-        metadata: withLifecycleMetadata(candidate.metadata, {
-          approvedAt: now.toISOString(),
-          approvedBy: input.approvedBy,
-        }),
-        updatedAt: now,
-      })
-      .where(eq(skills.id, candidate.id))
-      .returning();
+      .set({ active: false, enabled: false, updatedAt: now })
+      .where(eq(skills.id, current.id));
+  }
 
-    return updated;
-  });
+  const [approved] = await db
+    .update(skills)
+    .set({
+      enabled: true,
+      active: true,
+      reviewStatus: "approved",
+      metadata: withLifecycleMetadata(candidate.metadata, {
+        approvedAt: now.toISOString(),
+        approvedBy: input.approvedBy,
+      }),
+      updatedAt: now,
+    })
+    .where(eq(skills.id, candidate.id))
+    .returning();
 
   await invalidateSkillsCache();
   return serializeSkill(approved);

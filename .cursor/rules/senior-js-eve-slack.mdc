@@ -16,6 +16,11 @@ alwaysApply: true
 - Extract small utilities for repeated code only when it clearly reduces duplication or improves readability.
 - Keep utilities focused and colocated with nearby code unless the repo already has a shared location for that concern.
 
+# Storage And Neon
+
+- Do not use Drizzle transactions with this repository's Neon HTTP database client; `neon-http` does not support transactions.
+- Model storage mutations as explicit sequential queries with database constraints and idempotent error handling instead of `db.transaction(...)`.
+
 # eve And Slack
 
 - Before changing eve behavior, read the relevant installed docs from `node_modules/eve/docs/` when available; otherwise use `https://eve.dev/docs/introduction` and `https://vercel.com/eve`.
