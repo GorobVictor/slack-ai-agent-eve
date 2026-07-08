@@ -26,8 +26,9 @@ export async function handleSkillReviewInteraction(
 
   try {
     const admin = requireSkillAdminUserId(action.user.id);
+    const status = action.actionId === SKILL_REVIEW_APPROVE_ACTION_ID ? "approved" : "declined";
     const result =
-      action.actionId === SKILL_REVIEW_APPROVE_ACTION_ID
+      status === "approved"
         ? await approveSkillReviewCandidate({
             id: skillId,
             approvedBy: admin.userId,
@@ -42,7 +43,7 @@ export async function handleSkillReviewInteraction(
       action,
       ctx,
       skill: result,
-      status: action.actionId === SKILL_REVIEW_APPROVE_ACTION_ID ? "approved" : "declined",
+      status,
       adminUserId: admin.userId,
     });
   } catch (error) {

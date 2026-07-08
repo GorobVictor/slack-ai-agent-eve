@@ -148,11 +148,11 @@ async function createScheduleArtifactGenerationMetadata(
 async function notifyArtifactGenerationSuccess(
   message: StoredSlackMessageAnalysis,
   artifact: {
-    target: "skill" | "schedule";
+    target: "schedule";
     slug: string;
     title: string;
     version: number;
-    cron?: string;
+    cron: string;
   }
 ) {
   const markdown = buildArtifactNotificationMessage(message, artifact);
@@ -187,18 +187,14 @@ async function notifyArtifactGenerationSuccess(
 function buildArtifactNotificationMessage(
   message: StoredSlackMessageAnalysis,
   artifact: {
-    target: "skill" | "schedule";
+    target: "schedule";
     slug: string;
     title: string;
     version: number;
-    cron?: string;
+    cron: string;
   }
 ) {
   const name = artifact.title || artifact.slug;
-
-  if (artifact.target === "skill") {
-    return `Created a skill review candidate: ${name} v${artifact.version}.`;
-  }
 
   if (message.intent === "schedule.improve") {
     return `Updated schedule: ${name} to v${artifact.version} (${artifact.cron}).`;

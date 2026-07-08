@@ -55,36 +55,6 @@ export async function postSlackMessage(input: {
   };
 }
 
-export async function updateSlackMessage(input: {
-  channelId: string;
-  messageTs: string;
-  markdown: string;
-  blocks?: readonly unknown[];
-  text?: string | null;
-}) {
-  const body: Record<string, unknown> = {
-    channel: input.channelId,
-    ts: input.messageTs,
-  };
-  if (input.blocks) {
-    body.blocks = input.blocks;
-    body.text = input.text ?? input.markdown;
-  } else {
-    body.markdown_text = input.markdown;
-  }
-
-  const response = await callSlackApi("chat.update", body);
-  if (response.ok !== true) {
-    throw new Error(`Slack chat.update failed: ${response.error ?? "unknown_error"}`);
-  }
-
-  return {
-    channelId: String(response.channel ?? input.channelId),
-    messageTs: typeof response.ts === "string" ? response.ts : input.messageTs,
-    raw: response,
-  };
-}
-
 export async function openSlackDirectMessage(userId: string) {
   const response = await callSlackApi("conversations.open", { users: userId });
   const channel = response.channel;
