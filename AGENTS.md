@@ -66,7 +66,6 @@ agent/
 |   |-- eve.ts
 |   `-- slack.ts
 |-- connections/
-|   |-- github.ts
 |   |-- notion.ts
 |   `-- slack.ts
 |-- lib/
@@ -113,6 +112,7 @@ agent/
     |-- get_skill_review_candidates.ts
     |-- send_slack_file.ts
     |-- send_slack_message.ts
+    |-- github.ts
     `-- get_weather.ts
 ```
 
@@ -463,6 +463,11 @@ Slack delivery tools:
   delivery defaults to the triggering Slack user.
 - `send_slack_file`: uploads generated text content as a Slack file to the
   current thread or to a direct message.
+
+GitHub tools:
+
+- `agent/tools/github.ts` exposes GitHub repository, issue, pull request,
+  commit, and code search tools through the GitHub SDK.
 
 Use delivery tools only when the user asks or when delivery is clearly useful to
 complete the task. Do not send DMs to third parties by default, and do not send
