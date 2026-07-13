@@ -366,6 +366,7 @@ Stores Slack messages and asynchronous processing state.
 │   │   ├── eve.ts
 │   │   └── slack.ts
 │   ├── connections/
+│   │   ├── github.ts
 │   │   ├── notion.ts
 │   │   └── slack.ts
 │   ├── lib/
@@ -417,7 +418,6 @@ Stores Slack messages and asynchronous processing state.
 │       ├── get_skill_review_candidates.ts
 │       ├── send_slack_file.ts
 │       ├── send_slack_message.ts
-│       ├── github.ts
 │       └── get_weather.ts
 ├── drizzle/
 ├── proto/features/
@@ -478,8 +478,9 @@ Stores Slack messages and asynchronous processing state.
   a DM to the triggering user by default.
 - `send_slack_file.ts` uploads generated text output as a Slack file to the
   current thread or to a DM.
-- `github.ts` exposes GitHub repository, issue, pull request, commit, and code
-  search tools through the GitHub SDK and Vercel Connect.
+- `agent/connections/github.ts` exposes GitHub repository, issue, pull request,
+  commit, and code search tools through the GitHub MCP connection and Vercel
+  Connect.
 - `get_current_datetime.ts` returns the current localized datetime.
 - `get_weather.ts` resolves a city through Open-Meteo geocoding and returns the
   current forecast.
