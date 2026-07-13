@@ -16,7 +16,6 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@github-tools/sdk": "^1.8.0",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/connect": "^0.3.2",
     "ai": "^7.0.0",
